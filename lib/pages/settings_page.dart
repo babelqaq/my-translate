@@ -69,18 +69,19 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           RadioListTile<String>(
             title: const Text('Google（在线 / 更高准确率）'),
-            subtitle: const Text('需联网；单语种，仅监听上方选择的外语'),
+            subtitle: const Text('需联网且设备已预装 Google 服务（GMS）；单语种，仅监听外语'),
             value: 'google',
             groupValue: s.engine,
             onChanged: (v) => s.setEngine(v!),
           ),
           if (s.engine == 'google')
             const Padding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Text(
-                '提示：Google 引擎为单语种识别，只监听所选外语，'
-                '「听中文 → 同传」方向不会触发；如需双向自动判别，请使用 Vosk。',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                '⚠ 警告：Google 引擎依赖系统自带的 Google 语音识别服务，'
+                '未预装 GMS 的国产安卓机（华为/小米/OPPO 等）会初始化失败。'
+                '此类设备请直接用默认的 Vosk 离线引擎。',
+                style: TextStyle(fontSize: 12, color: Colors.red),
               ),
             ),
           const SizedBox(height: 4),
