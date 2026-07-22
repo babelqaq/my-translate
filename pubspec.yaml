@@ -29,7 +29,9 @@ dependencies:
   # 状态管理
   provider: ^6.1.2
   # 设置持久化
-  shared_preferences: ^2.2.2
+  # 钉死精确版本：^2.2.2 会浮到 2.5.5（要求 Dart 3.9），与本项目 Dart 2.19 冲突。
+  # 2.2.2 的约束为 ">=2.17.0 <4.0.0"，兼容 Dart 2.19。
+  shared_preferences: 2.2.2
   # 权限申请（10.2.0 兼容 Dart 2.x）
   permission_handler: 10.2.0
 
