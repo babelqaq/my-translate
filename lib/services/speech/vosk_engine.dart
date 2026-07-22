@@ -85,12 +85,24 @@ class VoskEngine implements SpeechEngine {
     return urls;
   }
 
-  /// 依次尝试各候选源下载模型，单个失败自动换下一个；
+  /// 加载单个模型，优先级：
+  /// 1) 从 APK 内置 assets 读取（已把模型 zip 放进 assets/models/ 时完全离线）
+  /// 2) 多源联网下载（自定义地址 → ghproxy 镜像 → 官方源）兜底
   /// 全部失败则抛出明确错误，提示用户在设置填写自定义地址。
   Future<String> _loadModel(
     String file, {
     required void Function(String)? onStatus,
   }) async {
+    // 1) 优先从安装包内置 assets 加载（捆绑模型后手机端零联网）
+    try {
+      onStatus?.call('正在从安装包加载内置模型：$file');
+      final path = await _loader.loadFromAssets('assets/models/$file');
+      if (path.trim().isNotEmpty) return path;
+    } catch (_) {
+      // 内置 assets 没有该模型（未捆绑），回退到联网下载
+    }
+
+    // 2) 多源联网下载兜底
     final candidates = _candidateUrls(file);
     for (final url in candidates) {
       try {
@@ -102,9 +114,9 @@ class VoskEngine implements SpeechEngine {
       }
     }
     throw Exception(
-        '所有模型下载源均失败（官方源 alphacephei.com 在国内常无法访问）。'
-        '请在「设置」填写自定义模型地址（国内可访问的镜像或对象存储），'
-        '或科学上网后重试；也可在 GitHub 仓库的 models Release 中手动下载。');
+        '所有模型来源均失败。请确认已将模型 zip 放入 assets/models/ 后重新构建，'
+        '或在「设置」填写自定义模型地址（国内可访问的镜像或对象存储），'
+        '或科学上网后重试。');
   }
 
   @override
