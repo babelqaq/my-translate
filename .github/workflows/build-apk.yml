@@ -37,7 +37,8 @@ jobs:
         run: flutter doctor -v || true
 
       - name: Generate platform files (android/)
-        run: flutter create --platforms=android .
+        # 显式指定 project-name，避免 flutter create 用 checkout 目录名（my-translate，含连字符）作包名导致非法。
+        run: flutter create --platforms=android --project-name my_translate .
 
       - name: Patch Android permissions & minSdk
         run: |
