@@ -43,7 +43,7 @@ class VoskEngine implements SpeechEngine {
     String? foreignLang,
   }) async {
     _foreignLang = foreignLang ?? 'en';
-    onStatus?.call('正在准备离线模型（首次运行需联网下载，约 90MB）…');
+    onStatus?.call('正在准备离线模型（优先从安装包加载，首次需解压）…');
     try {
       // 多源重试：自定义地址 → 多个 ghproxy 镜像 → 官方源（国内常不可达）
       final zhPath = await _loadModel(_kZhFile, onStatus: onStatus);
@@ -98,8 +98,11 @@ class VoskEngine implements SpeechEngine {
       onStatus?.call('正在从安装包加载内置模型：$file');
       final path = await _loader.loadFromAssets('assets/models/$file');
       if (path.trim().isNotEmpty) return path;
-    } catch (_) {
-      // 内置 assets 没有该模型（未捆绑），回退到联网下载
+    } catch (e, st) {
+      // 内置 assets 没有该模型（未捆绑 / 装的是不含模型的旧包），回退到联网下载。
+      // 打印真实异常便于排查：最常见是 "Unable to load asset"（APK 未打包该 zip）。
+      print('[vosk] 内置模型加载失败，将回退联网下载：$file\n$e');
+      print(st);
     }
 
     // 2) 多源联网下载兜底

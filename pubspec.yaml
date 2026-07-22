@@ -44,4 +44,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/
+    # 离线 Vosk 模型：显式列出每个 zip，确保一定打进 APK/运行产物
+    # （用目录递归 `- assets/` 在个别构建链路下可能漏掉子目录大文件）。
+    - assets/models/vosk-model-small-en-us-0.15.zip
+    - assets/models/vosk-model-small-cn-0.22.zip
+    - assets/models/vosk-model-small-ru-0.22.zip
