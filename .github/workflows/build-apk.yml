@@ -1,0 +1,42 @@
+name: Build Debug APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.5'
+          channel: 'stable'
+
+      - name: Accept Android licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Generate platform files (android/)
+        run: flutter create --platforms=android .
+
+      - name: Patch Android permissions & minSdk
+        run: |
+          sed -i 's#</manifest>#  <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n  <uses-permission android:name="android.permission.INTERNET"/>\n  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>\n  <queries>\n    <intent>\n      <action android:name="android.speech.RecognitionService" />\n    </intent>\n  </queries>\n</manifest>#' android/app/src/main/AndroidManifest.xml
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/' android/app/build.gradle
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-translate-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk

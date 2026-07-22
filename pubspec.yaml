@@ -1,0 +1,39 @@
+name: my_translate
+description: 语音翻译助手 - 听外语(英/俄)出中文字幕，听中文自动外语同声传译（Vosk 离线 / Google 在线，DeepL 免费 Key 翻译）
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 离线语音识别（Vosk，双模型并行自动检测语种）
+  vosk_flutter: ^0.3.48
+  # 麦克风采集（把同一路 PCM 同时喂给两个 Vosk 识别器）
+  flutter_sound: ^9.0.0
+  # Google 在线语音识别（可选引擎，更高准确率）
+  speech_to_text: ^6.6.2
+  # 翻译 API（DeepL 免费版，需免费 Key）
+  http: ^1.2.1
+  # 语音合成（TTS 同传朗读）
+  flutter_tts: ^4.0.2
+  # 状态管理
+  provider: ^6.1.2
+  # 设置持久化
+  shared_preferences: ^2.2.2
+  # 权限申请
+  permission_handler: ^11.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/

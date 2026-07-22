@@ -1,0 +1,22 @@
+workflows:
+  my-translate-apk:
+    name: My Translate APK
+    instance_type: mac_mini_m1
+    environment:
+      flutter: "3.44.5"
+    triggering:
+      events:
+        - push
+    scripts:
+      - name: Generate platform files
+        script: flutter create --platforms=android .
+      - name: Patch Android permissions & minSdk
+        script: |
+          sed -i '' 's#</manifest>#  <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n  <uses-permission android:name="android.permission.INTERNET"/>\n  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>\n  <queries>\n    <intent>\n      <action android:name="android.speech.RecognitionService" />\n    </intent>\n  </queries>\n</manifest>#' android/app/src/main/AndroidManifest.xml
+          sed -i '' 's/minSdk = flutter.minSdkVersion/minSdk = 21/' android/app/build.gradle
+      - name: Get dependencies
+        script: flutter pub get
+      - name: Build APK
+        script: flutter build apk --debug
+    artifacts:
+      - build/app/outputs/flutter-apk/app-debug.apk
