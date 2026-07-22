@@ -25,10 +25,15 @@ class TranslationService {
     'ru': 'Russian',
   };
 
+  /// 翻译单段文本。
+  /// [source]/[target] 为语种代码（en/zh/ru）。
+  /// [isSpeech] 为 true 时按「语音同传」约束：只翻译真实内容、无意义则返回空、
+  /// 低温抑制编造，从源头避免没说话也冒出意义不明的同传。
   Future<String> translate(
     String text, {
     String source = 'en',
     String target = 'zh',
+    bool isSpeech = true,
   }) async {
     final q = text.trim();
     if (q.isEmpty) return '';
@@ -40,10 +45,22 @@ class TranslationService {
 
     final srcName = _langNames[source.toLowerCase()] ?? source;
     final tgtName = _langNames[target.toLowerCase()] ?? target;
-    final system =
-        'You are a professional translator. Translate the user\'s text from '
-        '$srcName to $tgtName. Output ONLY the translated text, with no quotes, '
-        'no explanations, and no extra commentary.';
+
+    // 语音同传场景：强调只翻译真实内容，禁止对噪声/语气词编造扩展。
+    final speechRule = isSpeech
+        ? ' The input is transcribed SPEECH and may include filler words '
+            '(e.g. "um", "ah", "那个"), disfluencies, or ASR errors. '
+            'If the source has no real semantic content — pure filler, a single '
+            'pause sound, gibberish, or empty after trimming — respond with an '
+            'EMPTY string. Do NOT invent, expand, explain, or add anything '
+            'beyond the source. Otherwise correct obvious ASR mistakes and '
+            'produce NATURAL, fluent $tgtName.'
+        : '';
+
+    final system = 'You are a professional speech interpreter. Translate the '
+        "user's text from $srcName to $tgtName.$speechRule "
+        'Output ONLY the translated text, with no quotes, no explanations, and '
+        'no extra commentary.';
 
     final uri = Uri.parse(settings.llmBaseUrl);
     final resp = await http.post(
@@ -58,7 +75,8 @@ class TranslationService {
           {'role': 'system', 'content': system},
           {'role': 'user', 'content': q},
         ],
-        'temperature': 0.3,
+        // 翻译/同传需稳定、低创造性：低温抑制幻觉与编造。
+        'temperature': 0.1,
         'stream': false,
       }),
     );
@@ -72,6 +90,20 @@ class TranslationService {
     final content = (choices != null && choices.isNotEmpty)
         ? (choices.first['message']['content'] as String?)?.trim()
         : null;
-    return (content != null && content.isNotEmpty) ? content : q;
+
+    // 模型按指示对无意义输入返回空 -> 直接返回空（不显示 / 不朗读）。
+    if (content == null || content.isEmpty) return '';
+
+    // 防幻觉后处理：源极短（口语噪声）却被译成明显更长的文本，丢弃。
+    if (isSpeech && _looksLikeHallucination(q, content)) return '';
+
+    return content;
+  }
+
+  /// 源文本很短（≤3 个实义字符）却被译成明显更长的文本，视为模型臆造，丢弃。
+  static bool _looksLikeHallucination(String source, String translation) {
+    final srcLen = source.replaceAll(RegExp(r'\s+'), '').length;
+    final tgtLen = translation.replaceAll(RegExp(r'\s+'), '').length;
+    return srcLen <= 3 && tgtLen >= 12;
   }
 }

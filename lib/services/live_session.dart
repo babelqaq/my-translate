@@ -49,6 +49,29 @@ class LiveSession extends ChangeNotifier {
   String get partialLang => _partialLang;
   String get message => _message;
 
+  /// 口语中的语气词 / 无意义填充词；去除后若为空则视为无内容。
+  static const Set<String> _fillers = {
+    '啊', '呀', '嗯', '呃', '诶', '哎', '哦', '喂',
+    '那个', '这个', '就是', '然后', '的话', '对吧', '是不是',
+    'um', 'uh', 'er', 'ah', 'oh', 'well', 'like', 'mm',
+  };
+
+  /// 判断识别结果是否为「无语义内容」（纯语气词 / 标点 / 噪声）。
+  /// 用于没说话或仅有 filler 时，避免触发翻译与同传朗读。
+  static bool _isMeaningless(String text) {
+    final t = text.trim().toLowerCase();
+    // 去掉所有标点与空白后为空 -> 无意义
+    final stripped = t.replaceAll(RegExp(r'[\s\p{P}]+', unicode: true), '');
+    if (stripped.isEmpty) return true;
+    // 逐个去掉已知填充词后若为空 -> 无意义（纯语气词）
+    var remaining = t;
+    for (final f in _fillers) {
+      remaining = remaining.replaceAll(f, '');
+    }
+    final after = remaining.replaceAll(RegExp(r'[\s\p{P}]+', unicode: true), '');
+    return after.isEmpty;
+  }
+
   Future<void> start() async {
     if (_status == 'listening' || _status == 'loading') return;
 
@@ -101,18 +124,31 @@ class LiveSession extends ChangeNotifier {
   }
 
   Future<void> _handleFinal(String text, String lang) async {
+    // 拦截纯语气词 / 噪声 / 无意义识别结果：不翻译、不同传朗读。
+    if (_isMeaningless(text)) return;
     try {
       if (lang == 'zh') {
         // 中文来源 -> 翻译成外语并同声传译
-        final foreign =
-            await translation.translate(text, source: 'zh', target: settings.foreignLang);
+        final foreign = await translation.translate(
+          text,
+          source: 'zh',
+          target: settings.foreignLang,
+          isSpeech: true,
+        );
+        if (foreign.trim().isEmpty) return; // 模型判定无意义，跳过朗读
         _message = '🔊 同传：$foreign';
         notifyListeners();
         final ttsLang = settings.foreignLang == 'ru' ? 'ru-RU' : 'en-US';
         await tts.speak(foreign, language: ttsLang);
       } else {
         // 外语来源(en/ru) -> 翻译成中文大字幕（不朗读）
-        final zh = await translation.translate(text, source: lang, target: 'zh');
+        final zh = await translation.translate(
+          text,
+          source: lang,
+          target: 'zh',
+          isSpeech: true,
+        );
+        if (zh.trim().isEmpty) return;
         _notes.add(NoteEntry(
           source: text,
           translation: zh,
