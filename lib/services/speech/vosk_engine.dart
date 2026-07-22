@@ -39,14 +39,19 @@ class VoskEngine implements SpeechEngine {
     _foreignLang = foreignLang ?? 'en';
     onStatus?.call('正在加载离线模型（首次运行需联网下载，约 90MB）…');
 
+    // loadFromNetwork 返回模型在文件系统中的路径（String）
     final zhPath = await _loader.loadFromNetwork(_kZhModelUrl);
     final foreignPath = _foreignLang == 'ru'
         ? await _loader.loadFromNetwork(_kRuModelUrl)
         : await _loader.loadFromNetwork(_kEnModelUrl);
 
-    _zh = await _vosk.createRecognizer(model: zhPath, sampleRate: 16000);
+    // 必须先 createModel(path) 得到 Model 对象，再传给 createRecognizer
+    final zhModel = await _vosk.createModel(zhPath);
+    final foreignModel = await _vosk.createModel(foreignPath);
+
+    _zh = await _vosk.createRecognizer(model: zhModel, sampleRate: 16000);
     _foreign =
-        await _vosk.createRecognizer(model: foreignPath, sampleRate: 16000);
+        await _vosk.createRecognizer(model: foreignModel, sampleRate: 16000);
   }
 
   @override
@@ -67,9 +72,10 @@ class VoskEngine implements SpeechEngine {
     );
     _active = true;
     _sub = _controller!.stream.listen((food) {
-      // flutter_sound 把 PCM 音频包成 FoodData 写入流
-      if (food is FoodData) {
-        _onAudio(food.data, onSegment);
+      // flutter_sound 把 PCM 音频包成 Food 写入流；food.data 为 Uint8List?，需判空
+      final data = food.data;
+      if (data != null && data.isNotEmpty) {
+        _onAudio(data, onSegment);
       }
     });
   }
