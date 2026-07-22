@@ -27,7 +27,7 @@ class MyTranslateApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider.value(value: settings),
         Provider.value(value: translation),
-        Provider.value(value: tts),
+        ChangeNotifierProvider.value(value: tts),
         ChangeNotifierProvider.value(value: session),
       ],
       child: MaterialApp(
