@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,3 +68,15 @@ jobs:
         with:
           name: my-translate-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Publish APK to Release (for faster mirror download)
+        if: success()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete debug-apk -y || true
+          gh release create debug-apk build/app/outputs/flutter-apk/app-debug.apk \
+            --title "Debug APK (latest)" \
+            --notes "Auto-built debug APK. 国内高速镜像: https://ghproxy.com/https://github.com/${{ github.repository }}/releases/download/debug-apk/app-debug.apk" \
+            --prerelease
