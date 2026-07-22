@@ -10,7 +10,7 @@ void main() async {
 
   final settings = AppSettings();
   await settings.load();
-  final translation = TranslationService(deeplKey: settings.deeplKey);
+  final translation = TranslationService(settings);
   final tts = TtsService();
   final session = LiveSession(
     settings: settings,

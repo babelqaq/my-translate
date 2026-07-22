@@ -1,5 +1,5 @@
 name: my_translate
-description: 语音翻译助手 - 听外语(英/俄)出中文字幕，听中文自动外语同声传译（Vosk 离线 / Google 在线，DeepL 免费 Key 翻译）
+description: 语音翻译助手 - 听外语(英/俄)出中文字幕，听中文自动外语同声传译（Vosk 离线 / Google 在线，国内大模型翻译）
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -20,7 +20,7 @@ dependencies:
   # Google 在线语音识别（可选引擎，更高准确率）
   # 6.1.1 是兼容 Dart 2.19 的最高版本（6.2.0+ 起要求 Dart 3.0）
   speech_to_text: 6.1.1
-  # 翻译 API（DeepL 免费版，需免费 Key）
+  # 翻译 API（国内大模型 OpenAI 兼容接口，http 发 JSON）
   # 0.13.x 兼容 Dart 2.x（1.x 部分版本要求 Dart 3）
   http: ^0.13.5
   # 语音合成（TTS 同传朗读）

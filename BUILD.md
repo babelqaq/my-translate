@@ -63,7 +63,7 @@ flutter install
 - **Vosk 模式（默认）**：首次会联网下载所选外语 + 中文两个小模型（英文约 40MB / 俄语约 45MB / 中文约 42MB），存到应用私有目录，之后可完全离线使用，并自动判别外语与中文。
 - **Google 模式**：需联网且设备已安装 Google 语音服务；在 App 内「设置」可切换，并选择识别外语（英文 / 俄语）。注意 Google 为单语种，只监听所选外语，「听中文 → 同传」方向不会触发。
 - 听外语（英文 / 俄语）→ 屏幕生成大字号、可滚动的中文笔记字幕；听中文 → 自动朗读对应外语（同声传译）。
-- **DeepL Key**：在 App「设置」里粘贴你的免费 API Key（形如 `xxxxxxxx-xxxx:fx`）。申请：https://www.deepl.com/pro-api 选 Free 套餐。
+- **翻译后端（国内大模型）**：在 App「设置」里选择供应商（智谱 GLM / 通义千问 / 豆包），粘贴对应 API Key 即可。三家都用中国手机号注册、有免费额度，**无需外币信用卡**。默认模型：GLM `glm-4-flash` / 千问 `qwen-turbo` / 豆包 `doubao-seed-1.6-250615`。
 
 ## 7. 云端构建（推荐：无需本机下载 SDK）
 
@@ -96,7 +96,7 @@ flutter install
 > 并自动补好 `RECORD_AUDIO` / `INTERNET` 权限与 `minSdk = 21`，不用你手动改。
 
 ## 8. 备注
-- 翻译后端用 **DeepL 免费版**（`api-free.deepl.com/v2/translate`），需在「设置」填入免费 Key，免费额度约 50 万字符/月。Key 存于本机 `shared_preferences`，不上传。
+- 翻译后端用 **国内大模型**（OpenAI 兼容 Chat 接口：智谱 GLM / 通义千问 / 豆包），需在「设置」选择供应商并填入对应 API Key，均可中国手机号注册、**无需外币信用卡**。Key 存于本机 `shared_preferences`，不上传。
 - 若开启代码混淆（minify/shrink），在 `android/app/proguard-rules.pro` 加入 Vosk 的 JNA 保留规则：
 ```
 -keep class com.sun.jna.* { *; }

@@ -11,16 +11,20 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _keyController;
+  late final TextEditingController _modelController;
 
   @override
   void initState() {
     super.initState();
-    _keyController = TextEditingController(text: context.read<AppSettings>().deeplKey);
+    final s = context.read<AppSettings>();
+    _keyController = TextEditingController(text: s.llmApiKey);
+    _modelController = TextEditingController(text: s.llmModel);
   }
 
   @override
   void dispose() {
     _keyController.dispose();
+    _modelController.dispose();
     super.dispose();
   }
 
@@ -29,6 +33,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final s = context.watch<AppSettings>();
     final foreignIsRu = s.foreignLang == 'ru';
     final foreignName = foreignIsRu ? '俄语' : '英文';
+    final preset = llmPresets[s.llmProvider]!;
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
@@ -76,21 +81,48 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           const Divider(),
-          const Text('DeepL 翻译 Key（免费）',
+          const Text('翻译后端（国内大模型，免外币信用卡）',
               style: TextStyle(fontWeight: FontWeight.bold)),
-          TextField(
-            controller: _keyController,
+          DropdownButtonFormField<String>(
+            value: s.llmProvider,
             decoration: const InputDecoration(
-              hintText: '粘贴 DeepL 免费 API Key（形如 xxxxxxxx-xxxx:fx）',
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
-            onChanged: (v) => s.setDeeplKey(v),
+            items: const [
+              DropdownMenuItem(value: 'glm', child: Text('智谱 GLM')),
+              DropdownMenuItem(value: 'qwen', child: Text('通义千问')),
+              DropdownMenuItem(value: 'doubao', child: Text('豆包（火山方舟）')),
+            ],
+            onChanged: (v) => s.setLlmProvider(v!),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _keyController,
+            decoration: const InputDecoration(
+              labelText: 'API Key',
+              hintText: '粘贴供应商的 API Key',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            onChanged: (v) => s.setLlmApiKey(v),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _modelController,
+            decoration: InputDecoration(
+              labelText: '模型（留空用默认）',
+              hintText: '默认：${preset.defaultModel}',
+              border: const OutlineInputBorder(),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            onChanged: (v) => s.setLlmModel(v),
           ),
           const SizedBox(height: 4),
-          const Text(
-            '申请地址：deepl.com/pro-api 选 Free 套餐。免费额度约 50 万字符/月。',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          Text(
+            preset.signupHint,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const Divider(),
           const Text('同传语速', style: TextStyle(fontWeight: FontWeight.bold)),

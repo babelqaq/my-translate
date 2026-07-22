@@ -1,31 +1,29 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'app_settings.dart';
 
-/// 翻译后端：DeepL 免费版（需要免费 API Key）。
+/// 翻译后端：国内大模型（OpenAI 兼容 Chat Completions 接口）。
 ///
-/// 端点：https://api-free.deepl.com/v2/translate
-/// 免费 Key 申请：https://www.deepl.com/pro-api （选 "Free" 套餐，Key 形如 xxxx:fx）
+/// 支持任意语种对（本项目用 EN / ZH / RU），无需外币信用卡，
+/// 用中国手机号注册即可获得免费额度。可选供应商：
+///   - 智谱 GLM（bigmodel.cn，glm-4-flash 免费）
+///   - 通义千问（阿里云百炼 dashscope，qwen-turbo 有免费额度）
+///   - 豆包（火山方舟 ark）
 ///
-/// 支持语种（本项目用到）：EN / ZH / RU。
+/// 通过 [AppSettings] 实时读取供应商 / Key / 模型，设置页改了立即生效。
 class TranslationService {
-  final String deeplKey;
+  final AppSettings settings;
 
-  TranslationService({required this.deeplKey});
+  TranslationService(this.settings);
 
-  /// 应用内小写语种代码 -> DeepL 大写代码
-  static String _deeplLang(String lang) {
-    switch (lang.toLowerCase()) {
-      case 'zh':
-      case 'zh-cn':
-      case 'cn':
-        return 'ZH';
-      case 'ru':
-        return 'RU';
-      case 'en':
-      default:
-        return 'EN';
-    }
-  }
+  /// 语种代码 -> 英文名称（用于构造翻译 prompt）
+  static const Map<String, String> _langNames = {
+    'en': 'English',
+    'zh': 'Chinese',
+    'zh-cn': 'Chinese',
+    'cn': 'Chinese',
+    'ru': 'Russian',
+  };
 
   Future<String> translate(
     String text, {
@@ -35,22 +33,34 @@ class TranslationService {
     final q = text.trim();
     if (q.isEmpty) return '';
 
-    if (deeplKey.trim().isEmpty) {
-      throw Exception('未配置 DeepL API Key（请在「设置」中填入免费 Key）');
+    final apiKey = settings.llmApiKey.trim();
+    if (apiKey.isEmpty) {
+      throw Exception('未配置翻译 API Key（请在「设置」中选择供应商并填入 Key）');
     }
 
-    final uri = Uri.https('api-free.deepl.com', '/v2/translate');
+    final srcName = _langNames[source.toLowerCase()] ?? source;
+    final tgtName = _langNames[target.toLowerCase()] ?? target;
+    final system =
+        'You are a professional translator. Translate the user\'s text from '
+        '$srcName to $tgtName. Output ONLY the translated text, with no quotes, '
+        'no explanations, and no extra commentary.';
+
+    final uri = Uri.parse(settings.llmBaseUrl);
     final resp = await http.post(
       uri,
       headers: {
-        'Authorization': 'DeepL-Auth-Key $deeplKey',
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': 'Bearer $apiKey',
       },
-      body: {
-        'text': q,
-        'source_lang': _deeplLang(source),
-        'target_lang': _deeplLang(target),
-      },
+      body: jsonEncode({
+        'model': settings.effectiveModel,
+        'messages': [
+          {'role': 'system', 'content': system},
+          {'role': 'user', 'content': q},
+        ],
+        'temperature': 0.3,
+        'stream': false,
+      }),
     );
 
     if (resp.statusCode != 200) {
@@ -58,10 +68,10 @@ class TranslationService {
     }
 
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
-    final translations = data['translations'] as List<dynamic>?;
-    final translated = (translations != null && translations.isNotEmpty)
-        ? (translations.first['text'] as String?)?.trim()
+    final choices = data['choices'] as List<dynamic>?;
+    final content = (choices != null && choices.isNotEmpty)
+        ? (choices.first['message']['content'] as String?)?.trim()
         : null;
-    return (translated != null && translated.isNotEmpty) ? translated : q;
+    return (content != null && content.isNotEmpty) ? content : q;
   }
 }
