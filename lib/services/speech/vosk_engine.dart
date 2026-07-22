@@ -5,12 +5,11 @@ import 'package:flutter_sound/flutter_sound.dart';
 import 'package:vosk_flutter/vosk_flutter.dart';
 import 'speech_engine.dart';
 
-const String _kEnModelUrl =
-    'https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip';
-const String _kZhModelUrl =
-    'https://alphacephei.com/vosk/models/vosk-model-small-cn-0.22.zip';
-const String _kRuModelUrl =
-    'https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip';
+/// 你的 GitHub 仓库（用于经 ghproxy 镜像下载模型，需与实际情况一致）。
+const String _kRepoSlug = 'babelqaq/my-translate';
+const String _kEnFile = 'vosk-model-small-en-us-0.15.zip';
+const String _kZhFile = 'vosk-model-small-cn-0.22.zip';
+const String _kRuFile = 'vosk-model-small-ru-0.22.zip';
 
 /// 离线识别引擎：同时加载「外语 + 中文」两个 Vosk 小模型，
 /// 用一路麦克风 PCM 同时喂给两个识别器，按哪路有有效文本判断语种。
@@ -28,6 +27,13 @@ class VoskEngine implements SpeechEngine {
   bool _active = false;
   DateTime _lastPartial = DateTime.now();
 
+  /// 自定义模型下载基址（可选）。在「设置」填写，用于国内不可达官方源时
+  /// 指向自己的对象存储 / 国内可达镜像。留空则自动多源重试。
+  String? _modelBaseUrl;
+
+  set modelBaseUrl(String? v) =>
+      _modelBaseUrl = (v == null || v.trim().isEmpty) ? null : v.trim();
+
   @override
   String get name => 'vosk';
 
@@ -37,21 +43,68 @@ class VoskEngine implements SpeechEngine {
     String? foreignLang,
   }) async {
     _foreignLang = foreignLang ?? 'en';
-    onStatus?.call('正在加载离线模型（首次运行需联网下载，约 90MB）…');
+    onStatus?.call('正在准备离线模型（首次运行需联网下载，约 90MB）…');
+    try {
+      // 多源重试：自定义地址 → 多个 ghproxy 镜像 → 官方源（国内常不可达）
+      final zhPath = await _loadModel(_kZhFile, onStatus: onStatus);
+      final foreignFile = _foreignLang == 'ru' ? _kRuFile : _kEnFile;
+      final foreignPath = await _loadModel(foreignFile, onStatus: onStatus);
 
-    // loadFromNetwork 返回模型在文件系统中的路径（String）
-    final zhPath = await _loader.loadFromNetwork(_kZhModelUrl);
-    final foreignPath = _foreignLang == 'ru'
-        ? await _loader.loadFromNetwork(_kRuModelUrl)
-        : await _loader.loadFromNetwork(_kEnModelUrl);
+      // 必须先 createModel(path) 得到 Model 对象，再传给 createRecognizer
+      final zhModel = await _vosk.createModel(zhPath);
+      final foreignModel = await _vosk.createModel(foreignPath);
 
-    // 必须先 createModel(path) 得到 Model 对象，再传给 createRecognizer
-    final zhModel = await _vosk.createModel(zhPath);
-    final foreignModel = await _vosk.createModel(foreignPath);
+      _zh = await _vosk.createRecognizer(model: zhModel, sampleRate: 16000);
+      _foreign =
+          await _vosk.createRecognizer(model: foreignModel, sampleRate: 16000);
+    } catch (e) {
+      throw Exception('离线模型加载失败：$e');
+    }
+  }
 
-    _zh = await _vosk.createRecognizer(model: zhModel, sampleRate: 16000);
-    _foreign =
-        await _vosk.createRecognizer(model: foreignModel, sampleRate: 16000);
+  /// 按优先级拼接候选下载地址（自定义基址 + 多个镜像 + 官方源）。
+  List<String> _candidateUrls(String file) {
+    final urls = <String>[];
+    if (_modelBaseUrl != null) {
+      final base = _modelBaseUrl!.endsWith('/')
+          ? _modelBaseUrl!.substring(0, _modelBaseUrl!.length - 1)
+          : _modelBaseUrl!;
+      urls.add('$base/$file');
+    }
+    const mirrors = [
+      'https://ghproxy.com',
+      'https://ghproxy.net',
+      'https://mirror.ghproxy.com',
+      'https://ghproxy.cfd',
+    ];
+    for (final m in mirrors) {
+      urls.add(
+          '$m/https://github.com/$_kRepoSlug/releases/download/models/$file');
+    }
+    urls.add('https://alphacephei.com/vosk/models/$file');
+    return urls;
+  }
+
+  /// 依次尝试各候选源下载模型，单个失败自动换下一个；
+  /// 全部失败则抛出明确错误，提示用户在设置填写自定义地址。
+  Future<String> _loadModel(
+    String file, {
+    required void Function(String)? onStatus,
+  }) async {
+    final candidates = _candidateUrls(file);
+    for (final url in candidates) {
+      try {
+        onStatus?.call('正在下载模型：$file\n来源：$url');
+        final path = await _loader.loadFromNetwork(url);
+        if (path.trim().isNotEmpty) return path;
+      } catch (_) {
+        // 该源失败，尝试下一个
+      }
+    }
+    throw Exception(
+        '所有模型下载源均失败（官方源 alphacephei.com 在国内常无法访问）。'
+        '请在「设置」填写自定义模型地址（国内可访问的镜像或对象存储），'
+        '或科学上网后重试；也可在 GitHub 仓库的 models Release 中手动下载。');
   }
 
   @override

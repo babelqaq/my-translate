@@ -59,6 +59,9 @@ class LiveSession extends ChangeNotifier {
     }
 
     _engine = settings.engine == 'google' ? GoogleEngine() : VoskEngine();
+    if (_engine is VoskEngine) {
+      (_engine as VoskEngine).modelBaseUrl = settings.modelBaseUrl;
+    }
     _setStatus('loading', '正在准备识别引擎…');
 
     try {

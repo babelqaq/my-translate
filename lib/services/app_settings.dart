@@ -37,6 +37,7 @@ class AppSettings extends ChangeNotifier {
   static const String _kLlmModel = 'llm_model';
   static const String _kTtsRate = 'tts_rate';
   static const String _kFontSize = 'font_size';
+  static const String _kModelBase = 'model_base_url';
 
   String _engine = 'vosk'; // 'vosk' | 'google'
   String _foreignLang = 'en'; // 'en' | 'ru'（外语：字幕来源 / 同传目标）
@@ -45,6 +46,7 @@ class AppSettings extends ChangeNotifier {
   String _llmModel = ''; // 留空则用供应商默认模型
   double _ttsRate = 0.95;
   double _fontSize = 30;
+  String _modelBaseUrl = '';
 
   String get engine => _engine;
   String get foreignLang => _foreignLang;
@@ -61,6 +63,7 @@ class AppSettings extends ChangeNotifier {
 
   double get ttsRate => _ttsRate;
   double get fontSize => _fontSize;
+  String get modelBaseUrl => _modelBaseUrl;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -71,6 +74,7 @@ class AppSettings extends ChangeNotifier {
     _llmModel = prefs.getString(_kLlmModel) ?? '';
     _ttsRate = prefs.getDouble(_kTtsRate) ?? 0.95;
     _fontSize = prefs.getDouble(_kFontSize) ?? 30;
+    _modelBaseUrl = prefs.getString(_kModelBase) ?? '';
     notifyListeners();
   }
 
@@ -114,5 +118,11 @@ class AppSettings extends ChangeNotifier {
     _fontSize = v;
     notifyListeners();
     (await SharedPreferences.getInstance()).setDouble(_kFontSize, v);
+  }
+
+  Future<void> setModelBaseUrl(String v) async {
+    _modelBaseUrl = v.trim();
+    notifyListeners();
+    (await SharedPreferences.getInstance()).setString(_kModelBase, _modelBaseUrl);
   }
 }

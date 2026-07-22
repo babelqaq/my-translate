@@ -12,6 +12,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _keyController;
   late final TextEditingController _modelController;
+  late final TextEditingController _modelBaseController;
 
   @override
   void initState() {
@@ -19,12 +20,14 @@ class _SettingsPageState extends State<SettingsPage> {
     final s = context.read<AppSettings>();
     _keyController = TextEditingController(text: s.llmApiKey);
     _modelController = TextEditingController(text: s.llmModel);
+    _modelBaseController = TextEditingController(text: s.modelBaseUrl);
   }
 
   @override
   void dispose() {
     _keyController.dispose();
     _modelController.dispose();
+    _modelBaseController.dispose();
     super.dispose();
   }
 
@@ -80,6 +83,17 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
+          const SizedBox(height: 4),
+          TextField(
+            controller: _modelBaseController,
+            decoration: const InputDecoration(
+              labelText: '自定义模型地址（可选）',
+              hintText: '留空则自动尝试官方源 / ghproxy 镜像',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            onChanged: (v) => s.setModelBaseUrl(v),
+          ),
           const Divider(),
           const Text('翻译后端（国内大模型，免外币信用卡）',
               style: TextStyle(fontWeight: FontWeight.bold)),
