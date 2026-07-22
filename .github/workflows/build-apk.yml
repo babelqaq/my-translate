@@ -12,14 +12,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: Setup Java 17
+        # Flutter 3.7.x 自带 Gradle 7.5 + AGP 7.3，需 Java 11~17；runner 默认 Java 21 不兼容，显式锁定 17。
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter 3.7.12 (Dart 2.19)
+        # vosk_flutter 0.3.48 仅支持 Dart <3.0，因此必须用 Flutter 3.7.x（最后一个 Dart 2.19）。
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.5'
+          flutter-version: '3.7.12'
           channel: 'stable'
 
-      - name: Accept Android licenses
-        run: yes | sdkmanager --licenses || true
+      - name: Setup Android SDK
+        # GitHub runner 默认不带 Android SDK，这里安装并自动接受许可。
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+          packages: 'platform-tools platforms;android-33 build-tools;33.0.2'
+
+      - name: Doctor (diagnostics)
+        run: flutter doctor -v || true
 
       - name: Generate platform files (android/)
         run: flutter create --platforms=android .

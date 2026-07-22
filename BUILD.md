@@ -4,7 +4,9 @@
 按下面步骤在你自己的电脑上生成平台工程并编译成 APK 即可。
 
 ## 1. 前置环境
-- 安装 **Flutter SDK（≥ 3.16）**：https://docs.flutter.dev/get-started/install
+- 安装 **Flutter SDK 3.7.x（Dart 2.19）**：https://docs.flutter.dev/get-started/install
+  > ⚠️ 必须用 3.7.x。本工程依赖 `vosk_flutter 0.3.48`，它只支持 Dart `<3.0.0`；
+  > 用 3.10+（Dart 3）会导致 `flutter pub get` 直接失败。CI 里已锁定 `3.7.12`。
 - 安装 **Android SDK**（用 Android Studio 的 SDK Manager），并配置 `ANDROID_HOME` / `ANDROID_SDK_ROOT`
 - 接受许可：`flutter doctor --android-licenses`
 - 手机开启「开发者选项 → USB 调试」，用 USB 连接电脑
@@ -71,10 +73,19 @@ flutter install
 工程里已备好两份配置，二选一：
 
 ### 方案 A：GitHub Actions（免费，需 GitHub 账号）
-1. 在 GitHub 新建一个仓库，把本工程 `git push` 上去（只需 push 代码文本，很小）。
-2. 仓库的 **Actions** 标签页会自动识别 `.github/workflows/build-apk.yml` 并运行；
+工程已被初始化为本地 git 仓库（分支 `main`，首版已 commit）。你只需：
+
+1. 在 GitHub 网页 **新建一个空仓库**（命名随意，如 `my-translate`；**不要**勾选初始化 README / .gitignore / License，保持空仓库，否则首次 push 会冲突）。
+2. 复制该仓库的 HTTPS 地址（形如 `https://github.com/你的用户名/my-translate.git`），在本机 `E:\MY_TANSLATE` 目录下执行：
+   ```bash
+   git remote add origin https://github.com/你的用户名/my-translate.git
+   git branch -M main
+   git push -u origin main
+   ```
+   > 首次 push 会弹出 GitHub 登录（浏览器或 token）。若用 token，需在 GitHub → Settings → Developer settings 生成 **fine-grained PAT**，勾选该仓库的 `contents: write` 权限。
+3. push 完成后，GitHub 的 **Actions** 标签页会自动识别 `.github/workflows/build-apk.yml` 并开始构建；
    也可进 Actions → 选 `Build Debug APK` → `Run workflow` 手动触发。
-3. 跑完后到 **Actions → 本次运行 → Artifacts** 下载 `my-translate-debug` 里的 `app-debug.apk`。
+4. 跑完后到 **Actions → 本次运行 → Artifacts** 下载 `my-translate-debug` 里的 `app-debug.apk`，拷到手机安装。
 
 ### 方案 B：CodeMagic（Flutter 原生，免费 500 分钟/月）
 1. 打开 https://codemagic.io ，用 GitHub / GitLab / Gitee 授权登录。

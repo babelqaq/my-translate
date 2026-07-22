@@ -23,8 +23,8 @@ class VoskEngine implements SpeechEngine {
   String _foreignLang = 'en'; // 'en' | 'ru'
   Recognizer? _foreign; // 外语识别器
   Recognizer? _zh; // 中文识别器
-  StreamSubscription<Uint8List>? _sub;
-  StreamController<Uint8List>? _controller;
+  StreamSubscription<Food>? _sub;
+  StreamController<Food>? _controller;
   bool _active = false;
   DateTime _lastPartial = DateTime.now();
 
@@ -58,7 +58,7 @@ class VoskEngine implements SpeechEngine {
       throw Exception('Vosk 模型未初始化');
     }
     await _recorder.openRecorder();
-    _controller = StreamController<Uint8List>();
+    _controller = StreamController<Food>();
     await _recorder.startRecorder(
       toStream: _controller!.sink,
       codec: Codec.pcm16,
@@ -66,7 +66,12 @@ class VoskEngine implements SpeechEngine {
       numChannels: 1,
     );
     _active = true;
-    _sub = _controller!.stream.listen((chunk) => _onAudio(chunk, onSegment));
+    _sub = _controller!.stream.listen((food) {
+      // flutter_sound 把 PCM 音频包成 FoodData 写入流
+      if (food is FoodData) {
+        _onAudio(food.data, onSegment);
+      }
+    });
   }
 
   Future<void> _onAudio(
