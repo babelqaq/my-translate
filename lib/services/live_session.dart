@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'speech/speech_engine.dart';
@@ -35,6 +36,12 @@ class LiveSession extends ChangeNotifier {
   String _partial = '';
   String _partialLang = '';
   String _message = '';
+
+  /// 按语种累积 final 的缓冲区：攒成更完整的句段再翻译，
+  /// 避免 Vosk 在停顿处把长句拆成多段各自翻译而丢失上下文。
+  String _accumText = '';
+  String _accumLang = '';
+  Timer? _silenceTimer;
 
   LiveSession({
     required this.settings,
@@ -110,6 +117,10 @@ class LiveSession extends ChangeNotifier {
     }
   }
 
+  /// 识别回调入口。
+  /// partial：仅更新预览字幕，不翻译。
+  /// final：按语种累积到缓冲区，攒成完整句段后再翻译——
+  ///   触发翻译的时机：① 语种切换；② 出现句末标点；③ 静默超过阈值。
   void _onSegment(String text, bool isFinal, String lang) {
     if (text.trim().isEmpty) return;
     if (!isFinal) {
@@ -120,6 +131,39 @@ class LiveSession extends ChangeNotifier {
     }
     _partial = '';
     _partialLang = '';
+
+    // 语种切换：先把上一语种攒下的内容翻译出来
+    if (_accumLang.isNotEmpty && _accumLang != lang) {
+      _flushAccum();
+    }
+    _accumLang = lang;
+    _accumText = _accumText.isEmpty ? text.trim() : '$_accumText ${text.trim()}';
+
+    // 句末标点 -> 视为一句结束，立即翻译
+    if (_hasSentenceEnd(_accumText)) {
+      _flushAccum();
+      return;
+    }
+    // 否则重置静默计时器：超过阈值无新 final 也认为该句结束
+    _silenceTimer?.cancel();
+    _silenceTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (_accumText.trim().isNotEmpty) _flushAccum();
+    });
+  }
+
+  /// 是否包含句末标点（中英文句末 + 省略号）。
+  static bool _hasSentenceEnd(String t) =>
+      t.trim().contains(RegExp(r'[。.!?！？…]"));
+
+  /// 把缓冲区里攒好的完整句段交给翻译/同传处理，并清空缓冲。
+  void _flushAccum() {
+    final text = _accumText.trim();
+    final lang = _accumLang;
+    _accumText = '';
+    _accumLang = '';
+    _silenceTimer?.cancel();
+    _silenceTimer = null;
+    if (text.isEmpty) return;
     _handleFinal(text, lang);
   }
 
@@ -173,6 +217,9 @@ class LiveSession extends ChangeNotifier {
     _engine = null;
     _partial = '';
     _partialLang = '';
+    _silenceTimer?.cancel();
+    _silenceTimer = null;
+    _flushAccum(); // 把停顿末尾攒下的最后一句也翻译出来
     _setStatus('idle', '已停止');
   }
 
@@ -189,6 +236,8 @@ class LiveSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    _silenceTimer?.cancel();
+    _silenceTimer = null;
     _engine?.stop();
     super.dispose();
   }
