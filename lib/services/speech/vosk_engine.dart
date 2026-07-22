@@ -72,11 +72,11 @@ class VoskEngine implements SpeechEngine {
     );
     _active = true;
     _sub = _controller!.stream.listen((food) {
-      // flutter_sound 把 PCM 音频以 FoodData 子类写入流；
-      // Food 是 sealed 抽象类，需先判定为 FoodData 才能访问 .data（Uint8List）
+      // flutter_sound 中 Food 是 sealed 抽象类，.data 仅在子类 FoodData 上，
+      // 且类型为可空 Uint8List?；需先 is FoodData 判定，再做 null 判空。
       if (food is FoodData) {
         final data = food.data;
-        if (data.isNotEmpty) {
+        if (data != null && data.isNotEmpty) {
           _onAudio(data, onSegment);
         }
       }
