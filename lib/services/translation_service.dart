@@ -114,6 +114,53 @@ class TranslationService {
     return content;
   }
 
+  /// 给语音识别原文补全自然标点（不翻译）。
+  /// 用于流式断句：Vosk 等 ASR 输出无标点，靠本方法判断「句末」，
+  /// 实现「每个句号翻译/同传一次」的流式体验。
+  /// 无 API Key 或请求失败时退化返回原文（仍可靠静默兜底整段翻译）。
+  Future<String> punctuate(String text, String lang) async {
+    final q = text.trim();
+    if (q.isEmpty) return '';
+
+    final apiKey = settings.llmApiKey.trim();
+    if (apiKey.isEmpty) return q; // 无 Key 退化：不标点，靠兜底
+
+    final langName = _langNames[lang.toLowerCase()] ?? lang;
+    final system = 'You are a punctuation restoration assistant for $langName '
+        'speech-to-text output. Add natural punctuation (periods, commas, '
+        'question marks) where appropriate. Rules: ONLY add punctuation, do NOT '
+        'translate, do NOT change, add, or remove any words, and do NOT complete '
+        'an unfinished sentence. If the text is clearly a mid-sentence fragment '
+        '(cut off, not a complete clause), do NOT put a period at the end. '
+        'Output ONLY the punctuated text, with no quotes or commentary.';
+
+    final uri = Uri.parse(settings.llmBaseUrl);
+    final resp = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode({
+        'model': settings.effectiveModel,
+        'messages': [
+          {'role': 'system', 'content': system},
+          {'role': 'user', 'content': q},
+        ],
+        'temperature': 0.0,
+        'stream': false,
+      }),
+    );
+
+    if (resp.statusCode != 200) return q; // 失败退化：返回原文
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final choices = data['choices'] as List<dynamic>?;
+    final content = (choices != null && choices.isNotEmpty)
+        ? (choices.first['message']['content'] as String?)?.trim()
+        : null;
+    return content?.isNotEmpty == true ? content! : q;
+  }
+
   /// 源文本很短（≤3 个实义字符）却被译成明显更长的文本，视为模型臆造，丢弃。
   static bool _looksLikeHallucination(String source, String translation) {
     final srcLen = source.replaceAll(RegExp(r'\s+'), '').length;

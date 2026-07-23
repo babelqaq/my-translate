@@ -42,6 +42,13 @@ class VoskEngine implements SpeechEngine {
   String? _stickyLang;
   DateTime _stickyUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
+  // 手动语种提示：用户明确「现在说中文/英文」时强制采用对应识别器，
+  // 跳过置信度仲裁与噪声阈值，避免自动判别把中文误识别成英文。
+  String? _preferredLang; // 'en' | 'zh' | null(自动)
+
+  set preferredLang(String? v) =>
+      _preferredLang = (v == null || v.isEmpty || v == 'auto') ? null : v;
+
   /// 自定义模型下载基址（可选）。在「设置」填写，用于国内不可达官方源时
   /// 指向自己的对象存储 / 国内可达镜像。留空则自动多源重试。
   String? _modelBaseUrl;
@@ -197,6 +204,7 @@ class VoskEngine implements SpeechEngine {
           zText: zhReady ? _parseText(zJson) : _parsePartial(zJson),
           zConf: _resultConf(zJson),
           forFinal: true,
+          preferred: _preferredLang,
         );
         if (verdict != null) {
           _setSticky(verdict.lang);
@@ -217,6 +225,7 @@ class VoskEngine implements SpeechEngine {
         zText: _parsePartial(zJson),
         zConf: _resultConf(zJson),
         forFinal: false,
+        preferred: _preferredLang,
       );
       if (verdict != null) onSegment(verdict.text, false, verdict.lang);
     }
@@ -253,7 +262,19 @@ class VoskEngine implements SpeechEngine {
     required String zText,
     required double zConf,
     required bool forFinal,
+    String? preferred,
   }) {
+    // 手动语种提示：直接采用指定识别器的文本，跳过置信度仲裁与噪声阈值。
+    // 用户明确「现在在说中文/英文」时，信任其选择，避免仲裁误把中文判成英文。
+    if (preferred != null) {
+      if (preferred == 'zh') {
+        return zText.trim().isNotEmpty ? _Verdict(zText, 'zh') : null;
+      }
+      if (preferred == _foreignLang) {
+        return fText.trim().isNotEmpty ? _Verdict(fText, _foreignLang) : null;
+      }
+    }
+
     String? lang;
     String? text;
     // 1) 原始胜者：置信度更高且非空者胜出

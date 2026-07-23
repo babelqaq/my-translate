@@ -181,6 +181,34 @@ class _LivePageState extends State<LivePage> {
                   ),
           ),
 
+          // 手动语种提示：辅助纠正「中文被误识别成英文」
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: Row(
+              children: [
+                const Text('输入语种', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('自动'),
+                  selected: session.manualLang == 'auto',
+                  onSelected: (_) => session.setManualLang('auto'),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('中文'),
+                  selected: session.manualLang == 'zh',
+                  onSelected: (_) => session.setManualLang('zh'),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('英文'),
+                  selected: session.manualLang == 'en',
+                  onSelected: (_) => session.setManualLang('en'),
+                ),
+              ],
+            ),
+          ),
+
           // 开始 / 停止按钮
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
