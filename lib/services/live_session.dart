@@ -158,7 +158,7 @@ class LiveSession extends ChangeNotifier {
 
   /// 是否包含句末标点（中英文句末 + 省略号）。
   static bool _hasSentenceEnd(String t) =>
-      t.trim().contains(RegExp(r'[。.!?！？…]"));
+      t.trim().contains(RegExp(r'[。.!?！？…]'));
 
   /// 把缓冲区里攒好的完整句段交给翻译/同传处理，并清空缓冲。
   void _flushAccum() {
