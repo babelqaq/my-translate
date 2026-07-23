@@ -34,6 +34,7 @@ class TranslationService {
     String source = 'en',
     String target = 'zh',
     bool isSpeech = true,
+    List<String>? context,
   }) async {
     final q = text.trim();
     if (q.isEmpty) return '';
@@ -57,8 +58,21 @@ class TranslationService {
             'produce NATURAL, fluent $tgtName.'
         : '';
 
+    // 标点恢复：让译文带自然标点，便于断句与 TTS 停顿更自然。
+    final punctRule = isSpeech
+        ? ' Restore and include natural punctuation in the translation.'
+        : '';
+
+    // 对话上下文：仅用于消歧（指代/术语/语气），不翻译这些历史句。
+    final contextRule = (context != null && context.isNotEmpty)
+        ? ' The following are recent utterances from the SAME conversation, '
+            'provided for CONTEXT ONLY to help you resolve ambiguity, pronouns, '
+            'and domain terms — do NOT translate them:\n'
+            '${context.map((s) => "- $s").join("\n")}'
+        : '';
+
     final system = 'You are a professional speech interpreter. Translate the '
-        "user's text from $srcName to $tgtName.$speechRule "
+        "user's text from $srcName to $tgtName.$speechRule$punctRule$contextRule "
         'Output ONLY the translated text, with no quotes, no explanations, and '
         'no extra commentary.';
 

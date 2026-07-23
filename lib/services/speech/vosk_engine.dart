@@ -5,11 +5,23 @@ import 'package:flutter_sound/flutter_sound.dart';
 import 'package:vosk_flutter/vosk_flutter.dart';
 import 'speech_engine.dart';
 
+/// 语种仲裁结果：胜出文本与其语种。
+class _Verdict {
+  final String text;
+  final String lang;
+  _Verdict(this.text, this.lang);
+}
+
 /// 你的 GitHub 仓库（用于经 ghproxy 镜像下载模型，需与实际情况一致）。
 const String _kRepoSlug = 'babelqaq/my-translate';
 const String _kEnFile = 'vosk-model-small-en-us-0.15.zip';
 const String _kZhFile = 'vosk-model-small-cn-0.22.zip';
 const String _kRuFile = 'vosk-model-small-ru-0.22.zip';
+
+// 语种仲裁相关阈值
+const double _kMinConf = 0.2; // final 阶段最小置信阈值（低于视为噪声/不确定）
+const double _kStickyMargin = 0.15; // 黏滞被覆盖所需的置信优势
+const Duration _kStickyDuration = Duration(seconds: 3);
 
 /// 离线识别引擎：同时加载「外语 + 中文」两个 Vosk 小模型，
 /// 用一路麦克风 PCM 同时喂给两个识别器，按哪路有有效文本判断语种。
@@ -26,6 +38,9 @@ class VoskEngine implements SpeechEngine {
   StreamController<Food>? _controller;
   bool _active = false;
   DateTime _lastPartial = DateTime.now();
+  // 语种黏滞：高置信判定后短时间内沿用，避免句中个别外文词触发翻转。
+  String? _stickyLang;
+  DateTime _stickyUntil = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// 自定义模型下载基址（可选）。在「设置」填写，用于国内不可达官方源时
   /// 指向自己的对象存储 / 国内可达镜像。留空则自动多源重试。
@@ -165,34 +180,120 @@ class VoskEngine implements SpeechEngine {
       final sub = chunk.sublist(i, end);
       final foreignReady = await _foreign!.acceptWaveformBytes(sub);
       final zhReady = await _zh!.acceptWaveformBytes(sub);
-      if (foreignReady) {
-        _emit(await _foreign!.getResult(), _foreignLang, true, onSegment);
+
+      // 任一方检测到句界：读取双方假设做置信度语种仲裁，只发赢家。
+      // 只有真正 accept 的识别器才 getResult()（会重置其累积）；
+      // 另一方仅读 getPartialResult()（非破坏，保留其进行中的累积），避免切碎。
+      if (foreignReady || zhReady) {
+        final fJson = foreignReady
+            ? await _foreign!.getResult()
+            : await _foreign!.getPartialResult();
+        final zJson = zhReady
+            ? await _zh!.getResult()
+            : await _zh!.getPartialResult();
+        final verdict = _arbitrate(
+          fText: foreignReady ? _parseText(fJson) : _parsePartial(fJson),
+          fConf: _resultConf(fJson),
+          zText: zhReady ? _parseText(zJson) : _parsePartial(zJson),
+          zConf: _resultConf(zJson),
+          forFinal: true,
+        );
+        if (verdict != null) {
+          _setSticky(verdict.lang);
+          onSegment(verdict.text, true, verdict.lang);
+        }
       }
-      if (zhReady) _emit(await _zh!.getResult(), 'zh', true, onSegment);
     }
 
-    // 限流读取 partial 结果，避免过高平台调用频率
+    // 限流读取 partial 结果做预览，同样走置信度仲裁（仅选赢家显示，不丢弃）。
     final now = DateTime.now();
     if (now.difference(_lastPartial).inMilliseconds > 140) {
       _lastPartial = now;
-      final foreignPartial = _parsePartial(await _foreign!.getPartialResult());
-      final zhPartial = _parsePartial(await _zh!.getPartialResult());
-      if (zhPartial.trim().isNotEmpty) {
-        onSegment(zhPartial, false, 'zh');
-      } else if (foreignPartial.trim().isNotEmpty) {
-        onSegment(foreignPartial, false, _foreignLang);
-      }
+      final fJson = await _foreign!.getPartialResult();
+      final zJson = await _zh!.getPartialResult();
+      final verdict = _arbitrate(
+        fText: _parsePartial(fJson),
+        fConf: _resultConf(fJson),
+        zText: _parsePartial(zJson),
+        zConf: _resultConf(zJson),
+        forFinal: false,
+      );
+      if (verdict != null) onSegment(verdict.text, false, verdict.lang);
     }
   }
 
-  void _emit(
-    String json,
-    String lang,
-    bool isFinal,
-    void Function(String, bool, String) onSegment,
-  ) {
-    final text = _parseText(json);
-    if (text.trim().isNotEmpty) onSegment(text, isFinal, lang);
+  /// 解析 Vosk 结果 JSON 中的置信度：优先用顶层 "conf"，
+  /// 否则用 result 数组逐词 conf 的均值；缺失/异常返回 0。
+  double _resultConf(String json) {
+    try {
+      final m = jsonDecode(json) as Map<String, dynamic>;
+      if (m['conf'] is num) return (m['conf'] as num).toDouble();
+      final r = m['result'];
+      if (r is List && r.isNotEmpty) {
+        var sum = 0.0;
+        var n = 0;
+        for (final e in r) {
+          if (e is Map && e['conf'] is num) {
+            sum += (e['conf'] as num).toDouble();
+            n++;
+          }
+        }
+        if (n > 0) return sum / n;
+      }
+    } catch (_) {}
+    return 0.0;
+  }
+
+  /// 双模型语种仲裁：依据置信度选赢家，并应用语种黏滞。
+  /// 返回胜出的 (文本, 语种)；不确定/噪声返回 null。
+  /// [forFinal] 为 true 时应用最小置信阈值（低于阈值丢弃，不触发翻译）。
+  _Verdict? _arbitrate({
+    required String fText,
+    required double fConf,
+    required String zText,
+    required double zConf,
+    required bool forFinal,
+  }) {
+    String? lang;
+    String? text;
+    // 1) 原始胜者：置信度更高且非空者胜出
+    if (fText.trim().isNotEmpty && fConf >= zConf) {
+      lang = _foreignLang;
+      text = fText;
+    } else if (zText.trim().isNotEmpty) {
+      lang = 'zh';
+      text = zText;
+    } else if (fText.trim().isNotEmpty) {
+      lang = _foreignLang;
+      text = fText;
+    }
+    if (lang == null || text == null) return null;
+
+    // 2) 语种黏滞：窗口内默认沿用上次高置信语种，
+    //    除非候选语种置信度明显更高（超过黏滞方 + 阈值）才切换。
+    final stick = _stickyLang;
+    if (stick != null && stick != lang && _stickyUntil.isAfter(DateTime.now())) {
+      final stickText = stick == _foreignLang ? fText : zText;
+      final stickConf = stick == _foreignLang ? fConf : zConf;
+      final candConf = lang == _foreignLang ? fConf : zConf;
+      if (stickText.trim().isNotEmpty && stickConf >= candConf - _kStickyMargin) {
+        lang = stick;
+        text = stickText;
+      }
+    }
+
+    // 3) 最小置信阈值（仅 final 阶段）
+    if (forFinal) {
+      final winConf = lang == _foreignLang ? fConf : zConf;
+      if (winConf < _kMinConf) return null;
+    }
+    return _Verdict(text, lang);
+  }
+
+  /// 记录当前高置信语种及其黏滞到期时间。
+  void _setSticky(String lang) {
+    _stickyLang = lang;
+    _stickyUntil = DateTime.now().add(_kStickyDuration);
   }
 
   String _parsePartial(String json) {

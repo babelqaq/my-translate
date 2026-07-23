@@ -43,6 +43,9 @@ class LiveSession extends ChangeNotifier {
   String _accumLang = '';
   Timer? _silenceTimer;
 
+  /// 对话上下文窗口：最近若干句原文，传给 LLM 帮助消歧（上限 8，取最近 4）。
+  final List<String> _recentSources = [];
+
   LiveSession({
     required this.settings,
     required this.translation,
@@ -87,6 +90,8 @@ class LiveSession extends ChangeNotifier {
       _setStatus('error', '需要麦克风权限才能使用');
       return;
     }
+
+    _recentSources.clear(); // 新会话从干净上下文开始
 
     _engine = settings.engine == 'google' ? GoogleEngine() : VoskEngine();
     if (_engine is VoskEngine) {
@@ -170,6 +175,10 @@ class LiveSession extends ChangeNotifier {
   Future<void> _handleFinal(String text, String lang) async {
     // 拦截纯语气词 / 噪声 / 无意义识别结果：不翻译、不同传朗读。
     if (_isMeaningless(text)) return;
+    // 取最近若干句原文作为上下文（不含当前句）
+    final ctx = _recentSources.length > 4
+        ? _recentSources.sublist(_recentSources.length - 4)
+        : List<String>.from(_recentSources);
     try {
       if (lang == 'zh') {
         // 中文来源 -> 翻译成外语并同声传译
@@ -178,6 +187,7 @@ class LiveSession extends ChangeNotifier {
           source: 'zh',
           target: settings.foreignLang,
           isSpeech: true,
+          context: ctx,
         );
         if (foreign.trim().isEmpty) return; // 模型判定无意义，跳过朗读
         _message = '🔊 同传：$foreign';
@@ -191,6 +201,7 @@ class LiveSession extends ChangeNotifier {
           source: lang,
           target: 'zh',
           isSpeech: true,
+          context: ctx,
         );
         if (zh.trim().isEmpty) return;
         _notes.add(NoteEntry(
@@ -204,7 +215,11 @@ class LiveSession extends ChangeNotifier {
     } catch (e) {
       _message = '翻译失败：$e';
       notifyListeners();
+      return;
     }
+    // 翻译成功后把当前原文加入上下文窗口
+    _recentSources.add(text);
+    if (_recentSources.length > 8) _recentSources.removeAt(0);
   }
 
   Future<void> stop() async {
