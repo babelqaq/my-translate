@@ -15,37 +15,57 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java 17
-        # Flutter 3.7.x 自带 Gradle 7.5 + AGP 7.3，需 Java 11~17；runner 默认 Java 21 不兼容，显式锁定 17。
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Flutter 3.7.12 (Dart 2.19)
-        # vosk_flutter 0.3.48 仅支持 Dart <3.0，因此必须用 Flutter 3.7.x（最后一个 Dart 2.19）。
+      - name: Setup Flutter (latest stable, Dart 3)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.7.12'
           channel: 'stable'
 
       - name: Setup Android SDK
-        # GitHub runner 默认不带 Android SDK，这里安装并自动接受许可。
         uses: android-actions/setup-android@v3
         with:
           accept-android-sdk-licenses: true
-          packages: 'platform-tools platforms;android-33 build-tools;33.0.2'
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
-      - name: Doctor (diagnostics)
+      - name: Doctor
         run: flutter doctor -v || true
 
-      - name: Generate platform files (android/)
-        # 显式指定 project-name，避免 flutter create 用 checkout 目录名（my-translate，含连字符）作包名导致非法。
+      - name: Generate platform scaffolding (gradle-wrapper.jar etc.)
+        # android/ 文本文件已入库，但 gradle-wrapper.jar 是二进制需生成。
+        # flutter create 不会覆盖已存在的自定义文件（asr/*.kt 等）。
         run: flutter create --platforms=android --project-name my_translate .
 
-      - name: Patch Android permissions & minSdk
+      - name: Restore committed custom files
+        # flutter create 可能覆盖我们的 build.gradle / Manifest / Kotlin，
+        # 从 git 恢复我们的版本（不影响 flutter create 生成的 res/ 和 gradle-wrapper.jar）。
         run: |
-          sed -i 's#</manifest>#  <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n  <uses-permission android:name="android.permission.INTERNET"/>\n  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>\n  <queries>\n    <intent>\n      <action android:name="android.speech.RecognitionService" />\n    </intent>\n  </queries>\n</manifest>#' android/app/src/main/AndroidManifest.xml
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' android/app/build.gradle
+          git checkout -- android/app/build.gradle \
+            android/app/src/main/AndroidManifest.xml \
+            android/app/src/main/kotlin/ \
+            android/settings.gradle \
+            android/build.gradle \
+            android/gradle.properties \
+            android/gradle/wrapper/gradle-wrapper.properties \
+            android/app/proguard-rules.pro
+
+      - name: Download sherpa-onnx AAR (if not committed)
+        # 如果 android/app/libs/ 没有 AAR，从 GitHub Releases 下载
+        # （CI runner 可访问 GitHub；本地用户需手动下载并提交）
+        run: |
+          if ! ls android/app/libs/sherpa-onnx-*.aar 1>/dev/null 2>&1; then
+            echo "AAR not found, downloading from GitHub Releases..."
+            curl -fSL -o android/app/libs/sherpa-onnx-1.12.25.aar \
+              "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.25/sherpa-onnx-1.12.25.aar"
+          else
+            echo "AAR already present, skipping download."
+          fi
+
+      - name: Fetch models from ModelScope
+        run: bash tools/fetch_models.sh
 
       - name: Get dependencies
         run: flutter pub get
@@ -68,30 +88,3 @@ jobs:
         with:
           name: my-translate-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
-
-      - name: Publish APK to Release (for faster mirror download)
-        if: success()
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete debug-apk -y || true
-          gh release create debug-apk build/app/outputs/flutter-apk/app-debug.apk \
-            --title "Debug APK (latest)" \
-            --notes "Auto-built debug APK. 国内镜像(任选其一，把前缀加到原 GitHub 链接前):\n- https://ghproxy.net/https://github.com/${{ github.repository }}/releases/download/debug-apk/app-debug.apk\n- https://mirror.ghproxy.com/https://github.com/${{ github.repository }}/releases/download/debug-apk/app-debug.apk\n- https://ghproxy.cfd/https://github.com/${{ github.repository }}/releases/download/debug-apk/app-debug.apk" \
-            --prerelease
-
-      - name: Publish Vosk models to Release (in-app mirror via ghproxy)
-        if: success()
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for f in vosk-model-small-en-us-0.15.zip vosk-model-small-cn-0.22.zip vosk-model-small-ru-0.22.zip; do
-            curl -fSL "https://alphacephei.com/vosk/models/$f" -o "$f"
-          done
-          gh release delete models -y || true
-          gh release create models vosk-model-small-*.zip \
-            --title "Vosk models (offline)" \
-            --notes "离线语音模型，App 内可经 ghproxy 镜像下载（国内可达）" \
-            --prerelease

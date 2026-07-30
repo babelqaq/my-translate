@@ -12,7 +12,6 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _keyController;
   late final TextEditingController _modelController;
-  late final TextEditingController _modelBaseController;
 
   @override
   void initState() {
@@ -20,82 +19,31 @@ class _SettingsPageState extends State<SettingsPage> {
     final s = context.read<AppSettings>();
     _keyController = TextEditingController(text: s.llmApiKey);
     _modelController = TextEditingController(text: s.llmModel);
-    _modelBaseController = TextEditingController(text: s.modelBaseUrl);
   }
 
   @override
   void dispose() {
     _keyController.dispose();
     _modelController.dispose();
-    _modelBaseController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppSettings>();
-    final foreignIsRu = s.foreignLang == 'ru';
-    final foreignName = foreignIsRu ? '俄语' : '英文';
+    final modeName = s.mode == 'zhRu' ? '中文 ⇄ 俄语' : '中文 ⇄ 英语';
     final preset = llmPresets[s.llmProvider]!;
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('外语（字幕来源 / 同传目标）',
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          RadioListTile<String>(
-            title: const Text('英文'),
-            subtitle: const Text('听英文 → 中文字幕；听中文 → 英文同传'),
-            value: 'en',
-            groupValue: s.foreignLang,
-            onChanged: (v) => s.setForeignLang(v!),
-          ),
-          RadioListTile<String>(
-            title: const Text('俄语'),
-            subtitle: const Text('听俄语 → 中文字幕；听中文 → 俄语同传'),
-            value: 'ru',
-            groupValue: s.foreignLang,
-            onChanged: (v) => s.setForeignLang(v!),
-          ),
+          const Text('当前模式', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(modeName),
+          const Text('（在主页面顶部卡片切换）',
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
           const Divider(),
-          const Text('识别引擎', style: TextStyle(fontWeight: FontWeight.bold)),
-          RadioListTile<String>(
-            title: const Text('Vosk（离线 / 自动检测语种）'),
-            subtitle: const Text('免费、无需 Key，首次需下载模型；支持双向自动判别'),
-            value: 'vosk',
-            groupValue: s.engine,
-            onChanged: (v) => s.setEngine(v!),
-          ),
-          RadioListTile<String>(
-            title: const Text('Google（在线 / 更高准确率）'),
-            subtitle: const Text('需联网且设备已预装 Google 服务（GMS）；单语种，仅监听外语'),
-            value: 'google',
-            groupValue: s.engine,
-            onChanged: (v) => s.setEngine(v!),
-          ),
-          if (s.engine == 'google')
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Text(
-                '⚠ 警告：Google 引擎依赖系统自带的 Google 语音识别服务，'
-                '未预装 GMS 的国产安卓机（华为/小米/OPPO 等）会初始化失败。'
-                '此类设备请直接用默认的 Vosk 离线引擎。',
-                style: TextStyle(fontSize: 12, color: Colors.red),
-              ),
-            ),
-          const SizedBox(height: 4),
-          TextField(
-            controller: _modelBaseController,
-            decoration: const InputDecoration(
-              labelText: '自定义模型地址（可选）',
-              hintText: '留空则自动尝试官方源 / ghproxy 镜像',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-            onChanged: (v) => s.setModelBaseUrl(v),
-          ),
-          const Divider(),
+
           const Text('翻译后端（国内大模型，免外币信用卡）',
               style: TextStyle(fontWeight: FontWeight.bold)),
           DropdownButtonFormField<String>(
@@ -140,6 +88,16 @@ class _SettingsPageState extends State<SettingsPage> {
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const Divider(),
+
+          // Phase B 预留：流式翻译开关（Phase A 先显示，功能在 Phase B 实现）
+          SwitchListTile(
+            title: const Text('流式翻译'),
+            subtitle: const Text('译文逐字浮现（Phase B 启用，当前为非流式）'),
+            value: s.streamEnabled,
+            onChanged: (v) => s.setStreamEnabled(v),
+          ),
+          const Divider(),
+
           const Text('同传语速', style: TextStyle(fontWeight: FontWeight.bold)),
           Slider(
             value: s.ttsRate,
@@ -160,9 +118,10 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (v) => s.setFontSize(v),
           ),
           const SizedBox(height: 12),
-          Text(
-            '说明：听$foreignName时，翻译结果以大字幕显示；听中文时，自动朗读$foreignName（同声传译）。',
-            style: const TextStyle(fontSize: 13, color: Colors.grey),
+          const Text(
+            '说明：听外语时，翻译结果以大字幕显示（静音）；'
+            '听中文时，自动朗读外语（同声传译）。',
+            style: TextStyle(fontSize: 13, color: Colors.grey),
           ),
         ],
       ),

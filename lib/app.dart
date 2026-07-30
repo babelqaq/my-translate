@@ -45,9 +45,6 @@ class MyTranslateApp extends StatelessWidget {
         ),
         themeMode: ThemeMode.system,
         home: const LivePage(),
-        routes: {
-          '/settings': (_) => const SettingsPage(),
-        },
       ),
     );
   }

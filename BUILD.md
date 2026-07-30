@@ -1,104 +1,97 @@
-# 构建与安装（Android）
+# 构建与安装（Android）— Phase A: Sherpa-ONNX 重构版
 
-本仓库只含 Flutter **源码**（`lib/`），缺少 `android/` 等平台工程文件。
-按下面步骤在你自己的电脑上生成平台工程并编译成 APK 即可。
+## 0. 前置下载清单（动码前先备齐）
+
+> **铁律：模型只从 ModelScope 下载，不从 GitHub Releases 拉取（国内网络必然失败）。**
+> AAR 从 GitHub Releases 浏览器直下（见下表）。
+
+| # | 资源 | 下载地址 | 放置位置 | 入 git |
+|---|------|----------|----------|--------|
+| 1 | `sherpa-onnx-1.12.25.aar`（~38MB） | https://github.com/k2-fsa/sherpa-onnx/releases （资产 `sherpa-onnx-1.12.25.aar`，勿选 -rknn） | `android/app/libs/` | **是** |
+| 2 | `silero_vad.onnx`（~2MB） | https://modelscope.cn/models/zhaochaoqun/sherpa-onnx-asr-models | `android/app/src/main/assets/models/vad/` | 否 |
+| 3 | bilingual zh-en int8（~80MB） | https://modelscope.cn/models/pkufool/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20 | `android/app/src/main/assets/models/zh_en/` | 否 |
+| 4 | T-one 俄语（~50MB） | 同 #2 镜像仓内检索 `t-one-russian` | `android/app/src/main/assets/models/ru/` | 否 |
+
+- 模型 #2–#4 可用 `bash tools/fetch_models.sh` 一键下载（ModelScope 源）。
+- AAR #1 需浏览器手动下载后放入 `android/app/libs/` 并 `git add` 提交（CI 若发现缺失会自动从 GitHub 下载，但本地必须手动）。
 
 ## 1. 前置环境
-- 安装 **Flutter SDK 3.7.x（Dart 2.19）**：https://docs.flutter.dev/get-started/install
-  > ⚠️ 必须用 3.7.x。本工程依赖 `vosk_flutter 0.3.48`，它只支持 Dart `<3.0.0`；
-  > 用 3.10+（Dart 3）会导致 `flutter pub get` 直接失败。CI 里已锁定 `3.7.12`。
-- 安装 **Android SDK**（用 Android Studio 的 SDK Manager），并配置 `ANDROID_HOME` / `ANDROID_SDK_ROOT`
+
+- **Flutter SDK 3.22+（Dart 3.3+）**：https://docs.flutter.dev/get-started/install
+  > Phase A 移除了 vosk_flutter，不再锁 Dart 2.19，用最新稳定版即可。
+- **Android SDK**（Android Studio SDK Manager），配置 `ANDROID_HOME`
 - 接受许可：`flutter doctor --android-licenses`
-- 手机开启「开发者选项 → USB 调试」，用 USB 连接电脑
+- 手机开启「开发者选项 → USB 调试」
 
-验证环境：
+验证：`flutter doctor`
+
+## 2. 生成平台工程（仅需一次）
+
+android/ 的文本文件（build.gradle / Manifest / Kotlin）已入库，但 `gradle-wrapper.jar` 等二进制文件需要生成：
+
 ```bash
-flutter doctor
+flutter create --platforms=android --project-name my_translate .
 ```
 
-## 2. 生成平台工程（不会覆盖你的 lib/ 与 pubspec.yaml）
-在项目根目录执行：
+生成后，恢复我们入库的自定义文件（flutter create 可能覆盖它们）：
+
 ```bash
-flutter create .
+git checkout -- android/app/build.gradle \
+  android/app/src/main/AndroidManifest.xml \
+  android/app/src/main/kotlin/ \
+  android/settings.gradle android/build.gradle \
+  android/gradle.properties \
+  android/gradle/wrapper/gradle-wrapper.properties \
+  android/app/proguard-rules.pro
 ```
-若提示已存在，可改用：
+
+## 3. 下载模型
+
 ```bash
-flutter create --platforms=android .
+bash tools/fetch_models.sh
 ```
 
-## 3. 添加权限
-打开 `android/app/src/main/AndroidManifest.xml`，在 `<manifest>` 下、`<application>` 之前加入：
-```xml
-<uses-permission android:name="android.permission.RECORD_AUDIO" />
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-```
-并在 `<application>` 之前加入（启用 Google 在线识别）：
-```xml
-<queries>
-  <intent>
-    <action android:name="android.speech.RecognitionService" />
-  </intent>
-</queries>
-```
-同时确保最小 SDK ≥ 21：在 `android/app/build.gradle` 的 `defaultConfig` 里设置
-```gradle
-minSdk = 21
+脚本从 ModelScope 镜像下载 3 个模型到 `android/app/src/main/assets/models/`。已存在则跳过。
+
+## 4. 下载 AAR
+
+浏览器打开 https://github.com/k2-fsa/sherpa-onnx/releases ，下载 `sherpa-onnx-1.12.25.aar`（选最新稳定版，勿选 -rknn 变体），放入 `android/app/libs/`。
+
+建议提交到 git（CI 若发现缺失会自动下载，但本地必须手动）：
+```bash
+git add android/app/libs/sherpa-onnx-1.12.25.aar
+git commit -m "chore: add sherpa-onnx AAR"
 ```
 
-## 4. 安装依赖并构建
+## 5. 构建与安装
+
 ```bash
 flutter pub get
 flutter build apk --debug
-```
-> 自用调试版用 `--debug` 即可；若要发布版去掉 `--debug`（即 `flutter build apk`）。
-
-## 5. 安装到手机
-```bash
 flutter install
 ```
+
 或把 `build/app/outputs/flutter-apk/app-debug.apk` 拷到手机手动安装。
 
-## 6. 首次运行说明
-- **Vosk 模式（默认）**：首次会联网下载所选外语 + 中文两个小模型（英文约 40MB / 俄语约 45MB / 中文约 42MB），存到应用私有目录，之后可完全离线使用，并自动判别外语与中文。
-- **Google 模式**：需联网且设备已安装 Google 语音服务；在 App 内「设置」可切换，并选择识别外语（英文 / 俄语）。注意 Google 为单语种，只监听所选外语，「听中文 → 同传」方向不会触发。
-- 听外语（英文 / 俄语）→ 屏幕生成大字号、可滚动的中文笔记字幕；听中文 → 自动朗读对应外语（同声传译）。
-- **翻译后端（国内大模型）**：在 App「设置」里选择供应商（智谱 GLM / 通义千问 / 豆包），粘贴对应 API Key 即可。三家都用中国手机号注册、有免费额度，**无需外币信用卡**。默认模型：GLM `glm-4-flash` / 千问 `qwen-turbo` / 豆包 `doubao-seed-1.6-250615`。
+## 6. 使用说明
 
-## 7. 云端构建（推荐：无需本机下载 SDK）
+- **两种模式**：中⇄英（默认）/ 中⇄俄。主页面顶部卡片切换。
+- **手动语种 Chip**：两种模式均显示「自动 / 中文 / 外语」。模式 A 的 Chip 只影响翻译方向；模式 B 的 Chip 还切换 ASR 识别器。
+- 听外语 → 中文大字幕（静音）；听中文 → 手机朗读外语译文（同声传译）。
+- **翻译后端**：在「设置」选供应商（智谱 GLM / 通义千问 / 豆包），粘贴 API Key。
 
-如果你本地下不动 Flutter / Android SDK，用云端 CI 构建最省事——**本机完全不装 SDK**，
-只把代码推到仓库，CI 服务器（网络好）自动编译，你最后下载一个 ~40MB 的 APK 即可。
+## 7. 云端构建
 
-工程里已备好两份配置，二选一：
+### GitHub Actions
+push 到 main 分支即自动构建。Artifacts 下载 `my-translate-debug` 里的 `app-debug.apk`。
 
-### 方案 A：GitHub Actions（免费，需 GitHub 账号）
-工程已被初始化为本地 git 仓库（分支 `main`，首版已 commit）。你只需：
+### CodeMagic
+读取 `codemagic.yaml`，Start new build 即可。
 
-1. 在 GitHub 网页 **新建一个空仓库**（命名随意，如 `my-translate`；**不要**勾选初始化 README / .gitignore / License，保持空仓库，否则首次 push 会冲突）。
-2. 复制该仓库的 HTTPS 地址（形如 `https://github.com/你的用户名/my-translate.git`），在本机 `E:\MY_TANSLATE` 目录下执行：
-   ```bash
-   git remote add origin https://github.com/你的用户名/my-translate.git
-   git branch -M main
-   git push -u origin main
-   ```
-   > 首次 push 会弹出 GitHub 登录（浏览器或 token）。若用 token，需在 GitHub → Settings → Developer settings 生成 **fine-grained PAT**，勾选该仓库的 `contents: write` 权限。
-3. push 完成后，GitHub 的 **Actions** 标签页会自动识别 `.github/workflows/build-apk.yml` 并开始构建；
-   也可进 Actions → 选 `Build Debug APK` → `Run workflow` 手动触发。
-4. 跑完后到 **Actions → 本次运行 → Artifacts** 下载 `my-translate-debug` 里的 `app-debug.apk`，拷到手机安装。
-
-### 方案 B：CodeMagic（Flutter 原生，免费 500 分钟/月）
-1. 打开 https://codemagic.io ，用 GitHub / GitLab / Gitee 授权登录。
-2. 添加本仓库，CodeMagic 会读取根目录的 `codemagic.yaml`。
-3. 点 **Start new build**，结束后在 Artifacts 下载 `app-debug.apk`。
-
-> 两份配置都会自动执行 `flutter create --platforms=android .` 生成平台工程，
-> 并自动补好 `RECORD_AUDIO` / `INTERNET` 权限与 `minSdk = 21`，不用你手动改。
+> CI 会自动执行 flutter create + 恢复自定义文件 + 下载 AAR（若缺失）+ fetch_models + build。
 
 ## 8. 备注
-- 翻译后端用 **国内大模型**（OpenAI 兼容 Chat 接口：智谱 GLM / 通义千问 / 豆包），需在「设置」选择供应商并填入对应 API Key，均可中国手机号注册、**无需外币信用卡**。Key 存于本机 `shared_preferences`，不上传。
-- 若开启代码混淆（minify/shrink），在 `android/app/proguard-rules.pro` 加入 Vosk 的 JNA 保留规则：
-```
--keep class com.sun.jna.* { *; }
--keepclassmembers class * extends com.sun.jna.* { public *; }
-```
+
+- ASR 全离线（模型打进 APK，约 150–170MB），运行期不联网。
+- 翻译需联网（LLM API）。
+- 若开启代码混淆，`proguard-rules.pro` 已含 sherpa-onnx / onnxruntime 保留规则。

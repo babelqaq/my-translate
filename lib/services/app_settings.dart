@@ -29,30 +29,34 @@ const Map<String, LlmPreset> llmPresets = {
 };
 
 /// 全局设置，使用 shared_preferences 持久化。
+///
+/// Phase A 字段迁移：
+/// - 删除：engine（vosk/google）、modelBaseUrl（不再运行期下载）
+/// - 升级：foreignLang('en'/'ru') → mode('zhEn'/'zhRu')，沿用旧 key 做迁移
+/// - 新增：streamEnabled（Phase B 用，Phase A 先存）
 class AppSettings extends ChangeNotifier {
-  static const String _kEngine = 'engine';
-  static const String _kForeignLang = 'foreign_lang';
+  static const String _kMode = 'mode';
+  static const String _kForeignLangLegacy = 'foreign_lang'; // 旧 key，迁移用
   static const String _kLlmProvider = 'llm_provider';
   static const String _kLlmApiKey = 'llm_api_key';
   static const String _kLlmModel = 'llm_model';
   static const String _kTtsRate = 'tts_rate';
   static const String _kFontSize = 'font_size';
-  static const String _kModelBase = 'model_base_url';
+  static const String _kStreamEnabled = 'stream_enabled';
 
-  String _engine = 'vosk'; // 'vosk' | 'google'
-  String _foreignLang = 'en'; // 'en' | 'ru'（外语：字幕来源 / 同传目标）
+  String _mode = 'zhEn'; // 'zhEn' | 'zhRu'
   String _llmProvider = 'glm'; // 'glm' | 'qwen' | 'doubao'
   String _llmApiKey = '';
   String _llmModel = ''; // 留空则用供应商默认模型
   double _ttsRate = 0.95;
   double _fontSize = 30;
-  String _modelBaseUrl = '';
+  bool _streamEnabled = true; // Phase B 用
 
-  String get engine => _engine;
-  String get foreignLang => _foreignLang;
+  String get mode => _mode;
   String get llmProvider => _llmProvider;
   String get llmApiKey => _llmApiKey;
   String get llmModel => _llmModel;
+  bool get streamEnabled => _streamEnabled;
 
   /// 当前供应商的完整接口地址
   String get llmBaseUrl => llmPresets[_llmProvider]!.baseUrl;
@@ -63,31 +67,38 @@ class AppSettings extends ChangeNotifier {
 
   double get ttsRate => _ttsRate;
   double get fontSize => _fontSize;
-  String get modelBaseUrl => _modelBaseUrl;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    _engine = prefs.getString(_kEngine) ?? 'vosk';
-    _foreignLang = prefs.getString(_kForeignLang) ?? 'en';
+    // 迁移：旧 foreign_lang → 新 mode
+    _mode = prefs.getString(_kMode) ?? _migrateForeignLang(prefs);
     _llmProvider = prefs.getString(_kLlmProvider) ?? 'glm';
     _llmApiKey = prefs.getString(_kLlmApiKey) ?? '';
     _llmModel = prefs.getString(_kLlmModel) ?? '';
     _ttsRate = prefs.getDouble(_kTtsRate) ?? 0.95;
     _fontSize = prefs.getDouble(_kFontSize) ?? 30;
-    _modelBaseUrl = prefs.getString(_kModelBase) ?? '';
+    _streamEnabled = prefs.getBool(_kStreamEnabled) ?? true;
     notifyListeners();
   }
 
-  Future<void> setEngine(String v) async {
-    _engine = v;
-    notifyListeners();
-    (await SharedPreferences.getInstance()).setString(_kEngine, v);
+  /// 旧版 foreign_lang 迁移到 mode：en → zhEn, ru → zhRu
+  String _migrateForeignLang(SharedPreferences prefs) {
+    final old = prefs.getString(_kForeignLangLegacy);
+    if (old == 'ru') {
+      prefs.setString(_kMode, 'zhRu');
+      prefs.remove(_kForeignLangLegacy);
+      return 'zhRu';
+    }
+    // en 或 null 都默认 zhEn
+    if (old != null) prefs.remove(_kForeignLangLegacy);
+    prefs.setString(_kMode, 'zhEn');
+    return 'zhEn';
   }
 
-  Future<void> setForeignLang(String v) async {
-    _foreignLang = v;
+  Future<void> setMode(String v) async {
+    _mode = v;
     notifyListeners();
-    (await SharedPreferences.getInstance()).setString(_kForeignLang, v);
+    (await SharedPreferences.getInstance()).setString(_kMode, v);
   }
 
   Future<void> setLlmProvider(String v) async {
@@ -120,9 +131,9 @@ class AppSettings extends ChangeNotifier {
     (await SharedPreferences.getInstance()).setDouble(_kFontSize, v);
   }
 
-  Future<void> setModelBaseUrl(String v) async {
-    _modelBaseUrl = v.trim();
+  Future<void> setStreamEnabled(bool v) async {
+    _streamEnabled = v;
     notifyListeners();
-    (await SharedPreferences.getInstance()).setString(_kModelBase, _modelBaseUrl);
+    (await SharedPreferences.getInstance()).setBool(_kStreamEnabled, v);
   }
 }

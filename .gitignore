@@ -7,18 +7,24 @@
 /build/
 ephemeral/
 
-# ===== Generated platform projects =====
-# CI 会自动执行 `flutter create --platforms=android .` 重新生成 android/，
-# 因此不要把平台工程提交进仓库（避免与本机/CI 生成的不一致）。
-/android/
+# ===== Android 平台工程 =====
+# Phase A 起 android/ 入库（含 Kotlin 自定义代码），仅忽略生成物与本地配置。
+/android/local.properties
+/android/.gradle/
+/android/**/build/
+/android/**/captures/
+/android/**/.cxx/
+# gradle-wrapper.jar 是二进制，由 flutter create 生成，不入库
+/android/**/gradle-wrapper.jar
+# 模型文件由 tools/fetch_models.sh 从 ModelScope 下载，不入库
+/android/app/src/main/assets/models/
+
+# ===== iOS / 其他平台（本项目仅 Android） =====
 /ios/
 /windows/
 /macos/
 /linux/
 /web/
-
-# ===== Android 本地配置 =====
-**/android/local.properties
 
 # ===== 编辑器 / IDE =====
 .idea/
@@ -30,6 +36,8 @@ ephemeral/
 # ===== 工具 / 代理内部目录 =====
 .history/
 .workbuddy/
+# 模型下载脚本的本地缓存（大压缩包，600MB+，绝不入库）
+/tools/.cache/
 
 # ===== OS =====
 *.class

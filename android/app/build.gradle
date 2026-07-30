@@ -1,0 +1,72 @@
+// android/app/build.gradle — Phase A: Sherpa-ONNX ASR 底座
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // Flutter Gradle 插件必须在 android{} 之后配置
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: '1'
+def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.0'
+
+android {
+    namespace = "com.example.my_translate"
+    compileSdk = 34
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    defaultConfig {
+        applicationId = "com.example.my_translate"
+        minSdk = 23          // sherpa-onnx 要求 minSdk 23+
+        targetSdk = 34
+        versionCode = flutterVersionCode.toInteger()
+        versionName = flutterVersionName
+
+        // 单架构 arm64-v8a：体积最省（目标设备均为 64 位 ARM 手机）
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    // onnx 模型文件不压缩（sherpa-onnx 需 mmap 直读）
+    androidResources {
+        noCompress 'onnx'
+    }
+
+    buildTypes {
+        release {
+            // 自用调试版先不做签名混淆，保证可安装
+            signingConfig = signingConfigs.debug
+            minifyEnabled = false
+            shrinkResources = false
+        }
+    }
+}
+
+dependencies {
+    // ============================================================
+    // Sherpa-ONNX 官方 AAR（GitHub Releases 直下，放入 libs/ 并入库）
+    // 下载地址见《项目总体规划.md》〇节清单 #1
+    // 不配置 Maven 坐标（国内拉取必失败）
+    // ============================================================
+    implementation files("libs/sherpa-onnx-1.12.25.aar")
+}

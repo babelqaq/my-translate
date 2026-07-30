@@ -1,51 +1,34 @@
 name: my_translate
-description: 语音翻译助手 - 听外语(英/俄)出中文字幕，听中文自动外语同声传译（Vosk 离线 / Google 在线，国内大模型翻译）
+description: 语音翻译助手 - 双语实时对话翻译器（中⇄英 / 中⇄俄），Sherpa-ONNX 离线 ASR + 国内大模型翻译
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0+1
 
 environment:
-  # 锁在 Dart 2.x：vosk_flutter 0.3.48 的约束是 sdk: ">=2.15.1 <3.0.0"，
-  # 因此整个工程必须用 Flutter 3.7.x（Dart 2.19）构建，不能用 3.10+（Dart 3）。
-  sdk: '>=2.17.0 <3.0.0'
+  # Phase A：移除 vosk_flutter 后解锁 Dart 3 / Flutter 3.22+
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # 离线语音识别（Vosk，双模型并行自动检测语种）
-  vosk_flutter: ^0.3.48
-  # 麦克风采集（把同一路 PCM 同时喂给两个 Vosk 识别器）
-  # 9.2.13 是兼容 Dart 2.19 的最高 9.x 版本（9.3.0+ 起要求 Dart 3.3）
-  flutter_sound: 9.2.13
-  # Google 在线语音识别（可选引擎，更高准确率）
-  # 6.1.1 是兼容 Dart 2.19 的最高版本（6.2.0+ 起要求 Dart 3.0）
-  speech_to_text: 6.1.1
-  # 翻译 API（国内大模型 OpenAI 兼容接口，http 发 JSON）
-  # 0.13.x 兼容 Dart 2.x（1.x 部分版本要求 Dart 3）
-  http: ^0.13.5
-  # 语音合成（TTS 同传朗读）
-  # 3.8.5 兼容 Dart 2.19（4.x 要求 Dart 3.4）
-  flutter_tts: 3.8.5
+  # 翻译 API（国内大模型 OpenAI 兼容接口）
+  http: ^1.2.0
+  # 语音合成（TTS 同声传译朗读）
+  flutter_tts: ^4.0.0
   # 状态管理
   provider: ^6.1.2
   # 设置持久化
-  # 钉死精确版本：^2.2.2 会浮到 2.5.5（要求 Dart 3.9），与本项目 Dart 2.19 冲突。
-  # 2.2.2 的约束为 ">=2.17.0 <4.0.0"，兼容 Dart 2.19。
-  shared_preferences: 2.2.2
-  # 权限申请（10.2.0 兼容 Dart 2.x）
-  permission_handler: 10.2.0
+  shared_preferences: ^2.3.0
+  # 权限申请
+  permission_handler: ^11.3.0
+  # sherpa_onnx 底座走 android/app/libs/ 的官方 AAR，不加 pub 依赖（避免双源）
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
-
-  assets:
-    # 离线 Vosk 模型：显式列出每个 zip，确保一定打进 APK/运行产物
-    # （用目录递归 `- assets/` 在个别构建链路下可能漏掉子目录大文件）。
-    - assets/models/vosk-model-small-en-us-0.15.zip
-    - assets/models/vosk-model-small-cn-0.22.zip
-    - assets/models/vosk-model-small-ru-0.22.zip
+  # Phase A：模型不再经 Flutter assets 打包，改由 android/app/src/main/assets/
+  # 原生 AssetManager 直读（sherpa-onnx Kotlin API 支持）。删除旧 assets 段。

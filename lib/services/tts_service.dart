@@ -54,11 +54,6 @@ class TtsService extends ChangeNotifier {
     await _tts.setSpeechRate(speed);
   }
 
-  /// 设置音量 (0.0 ~ 1.0)
-  Future<void> setVolume(double volume) async {
-    await _tts.setVolume(volume);
-  }
-
   @override
   void dispose() {
     _tts.stop();

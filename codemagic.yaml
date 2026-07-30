@@ -3,17 +3,34 @@ workflows:
     name: My Translate APK
     instance_type: mac_mini_m1
     environment:
-      flutter: "3.44.5"
+      # Phase A: Dart 3 / Flutter 3.22+（移除 vosk_flutter 后解锁）
+      flutter: stable
     triggering:
       events:
         - push
     scripts:
-      - name: Generate platform files
-        script: flutter create --platforms=android .
-      - name: Patch Android permissions & minSdk
+      - name: Generate platform scaffolding
+        # android/ 文本文件已入库，仅需生成 gradle-wrapper.jar 等二进制
+        script: flutter create --platforms=android --project-name my_translate .
+      - name: Restore committed custom files
+        # flutter create 可能覆盖自定义文件，从 git 恢复
         script: |
-          sed -i '' 's#</manifest>#  <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n  <uses-permission android:name="android.permission.INTERNET"/>\n  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>\n  <queries>\n    <intent>\n      <action android:name="android.speech.RecognitionService" />\n    </intent>\n  </queries>\n</manifest>#' android/app/src/main/AndroidManifest.xml
-          sed -i '' 's/minSdk = flutter.minSdkVersion/minSdk = 21/' android/app/build.gradle
+          git checkout -- android/app/build.gradle \
+            android/app/src/main/AndroidManifest.xml \
+            android/app/src/main/kotlin/ \
+            android/settings.gradle \
+            android/build.gradle \
+            android/gradle.properties \
+            android/gradle/wrapper/gradle-wrapper.properties \
+            android/app/proguard-rules.pro
+      - name: Download sherpa-onnx AAR (if not committed)
+        script: |
+          if ! ls android/app/libs/sherpa-onnx-*.aar 1>/dev/null 2>&1; then
+            curl -fSL -o android/app/libs/sherpa-onnx-1.12.25.aar \
+              "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.25/sherpa-onnx-1.12.25.aar"
+          fi
+      - name: Fetch models from ModelScope
+        script: bash tools/fetch_models.sh
       - name: Get dependencies
         script: flutter pub get
       - name: Build APK
