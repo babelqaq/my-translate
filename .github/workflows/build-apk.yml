@@ -60,7 +60,8 @@ jobs:
             android/gradle.properties \
             android/app/proguard-rules.pro
           # 注意：android/gradle/wrapper/gradle-wrapper.properties 故意不恢复，
-          # 由上面 `flutter create` 生成与当前 Flutter 匹配的 Gradle 版本（AGP 9 需 Gradle >= 8.11.1）。
+          # 而是在上面 "Pin Gradle to 9.1.0" 步骤用 sed 强制钉到 9.1.0
+          # （flutter create 可能生成较低版本，而当前 AGP 9 要求 Gradle >= 9.1.0）。
 
       - name: Cache models
         # 模型共 ~330MB，缓存后二次构建免下载。key 绑定下载脚本内容，
@@ -88,7 +89,10 @@ jobs:
         if: failure()
         run: |
           echo "===== FAILURE / What went wrong / Caused by in build_log.txt ====="
-          grep -n -A 60 -E "FAILURE: Build failed|What went wrong|Caused by|e: file://|error: " build_log.txt 2>/dev/null || echo "(no match in build_log.txt)"
+          # 大小写不敏感，覆盖 Dart 编译错误（Error: / .dart:）、kernel_snapshot 失败、
+          # Gradle FAILURE / What went wrong / Caused by，以及 kotlin/源文件报错行。
+          # -B 3 抓报错行上方上下文（Dart 的 "Error:" 行在源码/^ 行之前），-A 50 抓下方栈。
+          grep -n -B 3 -A 50 -i -E "FAILURE: Build failed|What went wrong|Caused by|error:|e: file://|kernel_snapshot|\.dart:" build_log.txt 2>/dev/null || echo "(no match in build_log.txt)"
           echo "===== tail of build_log.txt ====="
           tail -n 90 build_log.txt 2>/dev/null || true
           echo "===== gradle daemon logs ====="

@@ -70,7 +70,7 @@ class NativeAsrEngine {
         }
       },
       onError: (e) {
-        onEvent(const AsrEvent(type: 'error', text: 'EventChannel error: $e'));
+        onEvent(AsrEvent(type: 'error', text: 'EventChannel error: $e'));
       },
     );
   }
