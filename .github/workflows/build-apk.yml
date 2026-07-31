@@ -52,20 +52,19 @@ jobs:
             android/gradle/wrapper/gradle-wrapper.properties \
             android/app/proguard-rules.pro
 
-      - name: Download sherpa-onnx AAR (if not committed)
-        # 如果 android/app/libs/ 没有 AAR，从 GitHub Releases 下载
-        # （CI runner 可访问 GitHub；本地用户需手动下载并提交）
-        run: |
-          if ! ls android/app/libs/sherpa-onnx-*.aar 1>/dev/null 2>&1; then
-            echo "AAR not found, downloading from GitHub Releases..."
-            curl -fSL -o android/app/libs/sherpa-onnx-1.12.25.aar \
-              "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.25/sherpa-onnx-1.12.25.aar"
-          else
-            echo "AAR already present, skipping download."
-          fi
+      - name: Cache models
+        # 模型共 ~330MB，缓存后二次构建免下载。key 绑定下载脚本内容，
+        # 脚本改了（换模型/换版本）自动失效重新下载。
+        uses: actions/cache@v4
+        with:
+          path: android/app/src/main/assets/models
+          key: sherpa-models-${{ hashFiles('tools/fetch_models_github.sh') }}
 
-      - name: Fetch models from ModelScope
-        run: bash tools/fetch_models.sh
+      - name: Fetch models (GitHub official source)
+        # CI runner 在海外，直连 GitHub 官方 Releases（本脚本已在本地实测跑通，
+        # 已存在的文件自动跳过；AAR 已入库，脚本同样会跳过）。
+        # tools/fetch_models.sh 的 ModelScope 路径未经验证会 404，CI 不再使用。
+        run: bash tools/fetch_models_github.sh
 
       - name: Get dependencies
         run: flutter pub get

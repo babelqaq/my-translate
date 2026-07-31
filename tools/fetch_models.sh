@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # ============================================================================
+# ⚠️【已弃用 / DEPRECATED，2026-07-31】⚠️
+#   本脚本中的 ModelScope 直链路径未经验证，实测 404（CI run #16 失败）。
+#   - CI（GitHub Actions，海外 runner 可直连 GitHub）→ 用 tools/fetch_models_github.sh
+#   - 本地（开 VPN）                                → 用 tools/fetch_models_github.sh
+#   仅当未来确需国内免 VPN 下载时，先在 ModelScope 站内人工核实
+#   仓库名与文件路径、curl 验证直链可用后，再修复启用本脚本。
+# ============================================================================
 # 从 ModelScope 镜像下载 Sherpa-ONNX 模型到 android/app/src/main/assets/models/
 # 模型随 APK 打包，运行期全离线（目标设备不联网）。
-#
-# 铁律：不从 GitHub Releases 下载模型（国内网络必然失败），只走 ModelScope。
 #
 # 用法（在 Git Bash / WSL / macOS 终端中执行）：
 #   cd <项目根目录>
@@ -11,6 +16,12 @@
 #
 # 若 ModelScope 也访问不到，请先配置代理再跑。
 # ============================================================================
+echo "=============================================================="
+echo "[弃用警告] 本脚本的 ModelScope 直链未验证（实测 404）。"
+echo "           请改用: bash tools/fetch_models_github.sh"
+echo "           （CI 海外 runner 可直连；本地请开 VPN）"
+echo "=============================================================="
+exit 1
 set -euo pipefail
 
 # 模型目标目录（与 Kotlin AsrConfig 中路径一致）

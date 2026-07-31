@@ -23,14 +23,10 @@ workflows:
             android/gradle.properties \
             android/gradle/wrapper/gradle-wrapper.properties \
             android/app/proguard-rules.pro
-      - name: Download sherpa-onnx AAR (if not committed)
-        script: |
-          if ! ls android/app/libs/sherpa-onnx-*.aar 1>/dev/null 2>&1; then
-            curl -fSL -o android/app/libs/sherpa-onnx-1.12.25.aar \
-              "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.25/sherpa-onnx-1.12.25.aar"
-          fi
-      - name: Fetch models from ModelScope
-        script: bash tools/fetch_models.sh
+      - name: Fetch models (GitHub official source)
+        # Codemagic 海外机直连 GitHub；AAR 已入库脚本自动跳过。
+        # 原 ModelScope 版 fetch_models.sh 直链 404 已弃用（2026-07-31）。
+        script: bash tools/fetch_models_github.sh
       - name: Get dependencies
         script: flutter pub get
       - name: Build APK
