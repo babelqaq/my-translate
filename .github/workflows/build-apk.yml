@@ -71,17 +71,19 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --debug --verbose
+        run: |
+          set -o pipefail
+          flutter build apk --debug --verbose 2>&1 | tee build_log.txt
 
       - name: Surface build failure detail
         if: failure()
         run: |
-          echo "===== grep FAILURE / What went wrong / Caused by (project root flutter_build.log) ====="
-          grep -n -A 50 -E "FAILURE: Build failed|What went wrong|Caused by|e: file://" flutter_build.log 2>/dev/null || true
-          echo "===== grep (android/flutter_build.log) ====="
-          grep -n -A 50 -E "FAILURE: Build failed|What went wrong|Caused by|e: file://" android/flutter_build.log 2>/dev/null || true
+          echo "===== FAILURE / What went wrong / Caused by in build_log.txt ====="
+          grep -n -A 60 -E "FAILURE: Build failed|What went wrong|Caused by|e: file://|error: " build_log.txt 2>/dev/null || echo "(no match in build_log.txt)"
+          echo "===== tail of build_log.txt ====="
+          tail -n 90 build_log.txt 2>/dev/null || true
           echo "===== gradle daemon logs ====="
-          find android/build/outputs/logs -type f 2>/dev/null -exec echo "--- {} ---" \; -exec cat {} \; || true
+          find ~/.gradle/daemon -name "daemon-*.out.log" 2>/dev/null -exec echo "--- {} ---" \; -exec tail -n 120 {} \; || true
 
       - name: Upload Gradle log on failure
         if: failure()
