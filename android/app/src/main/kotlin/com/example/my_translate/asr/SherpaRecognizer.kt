@@ -35,7 +35,7 @@ class SherpaRecognizer(
     }
 
     private fun buildConfig(cfg: AsrConfig): OnlineRecognizerConfig {
-        val feat = FeatureConfig(sampleRate = cfg.sampleRate.toFloat(), featureDim = 80)
+        val feat = FeatureConfig(sampleRate = cfg.sampleRate, featureDim = 80)
 
         val model: OnlineModelConfig = when (type) {
             ModelType.BILINGUAL -> {
