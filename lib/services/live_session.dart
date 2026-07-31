@@ -53,7 +53,11 @@ class LiveSession extends ChangeNotifier {
     required this.settings,
     required this.translation,
     required this.tts,
-  });
+  }) {
+    // 防回声自触发：中文同传念英文时，TTS 播放期间暂停麦克风采集。
+    tts.onSpeakStart = () => unawaited(_engine.pauseCapture());
+    tts.onSpeakEnd = () => unawaited(_engine.resumeCapture());
+  }
 
   // ---------- Getters ----------
   List<NoteEntry> get notes => _notes;

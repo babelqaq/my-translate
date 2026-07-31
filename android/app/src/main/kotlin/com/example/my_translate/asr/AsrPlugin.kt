@@ -74,6 +74,14 @@ class AsrPlugin private constructor(
                     }
                     result.success(null)
                 }
+                "pauseCapture" -> {
+                    sessionManager.pauseCapture()
+                    result.success(null)
+                }
+                "resumeCapture" -> {
+                    sessionManager.resumeCapture()
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         } catch (e: Exception) {
