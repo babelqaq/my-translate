@@ -81,7 +81,8 @@ class SherpaRecognizer(
             // beam width=4 抑制不足。加大到 8 让搜索更充分，更易收敛到"发一次+持续 blank"路径。
             // 仅影响 modified_beam_search；CTC(俄语) 走 greedy 忽略此字段，无副作用。
             // 注意：blank_penalty 方向恰相反（提高会加重 insertion/重复，仅对漏字 deletion 有效），故不用于本场景。
-            numActivePaths = if (isTransducer) 8 else 4,
+            // 官方 Kotlin 绑定字段名为顶层 `maxActivePaths`（对应 C-API max_active_paths），非 numActivePaths。
+            maxActivePaths = if (isTransducer) 8 else 4,
             enableEndpoint = true,
         )
     }
