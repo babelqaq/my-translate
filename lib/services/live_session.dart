@@ -137,7 +137,13 @@ class LiveSession extends ChangeNotifier {
     if (text.trim().isEmpty) return;
 
     // 语种路由：手动 Chip 优先 > 字符集自动判定
-    final r = TranslationRouter.route(text, mode, manualLang: _manualLang);
+    // stickyLang 透传给 route()，实现 §8.2 第7步 INV-STICKY-SHORT 短文本保护
+    final r = TranslationRouter.route(
+      text,
+      mode,
+      manualLang: _manualLang,
+      stickyLang: _stickyLang.isEmpty ? null : _stickyLang,
+    );
     final SrcLang source;
     final String target;
 

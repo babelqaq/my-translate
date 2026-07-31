@@ -1,7 +1,6 @@
 package com.example.my_translate.asr
 
 import android.content.Context
-import android.util.Log
 
 /**
  * 识别器持有与 sticky 调度。
@@ -96,7 +95,6 @@ class RecognizerManager(
         } else {
             // Phase A：直接上抛，靠手动 Chip
             // Phase D：用另一识别器对 SegmentBuffer 重解码，择优上抛
-            Log.d(tag, "charMatch 失败 (activeLang=$activeLang, text='$text')，Phase A 直接上抛")
             emit(mapOf("type" to "final", "text" to text))
         }
     }
@@ -114,7 +112,6 @@ class RecognizerManager(
         // 重置两识别器的流
         bilingual?.reset()
         russian?.reset()
-        Log.d(tag, "setActiveLang: $activeLang")
     }
 
     // ---------- 生命周期 ----------

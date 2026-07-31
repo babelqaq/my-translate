@@ -55,7 +55,6 @@ class AudioCapture(
             priority = Thread.MAX_PRIORITY
             start()
         }
-        Log.d(tag, "采集启动: ${sampleRate}Hz, frame=${cfg.frameSamples} samples")
     }
 
     private fun captureLoop() {
@@ -96,6 +95,5 @@ class AudioCapture(
         } catch (_: Exception) {}
         audioRecord?.release()
         audioRecord = null
-        Log.d(tag, "采集停止")
     }
 }
