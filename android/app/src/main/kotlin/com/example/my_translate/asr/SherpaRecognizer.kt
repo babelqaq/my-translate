@@ -69,9 +69,13 @@ class SherpaRecognizer(
         // 真正的句子边界主要由 VAD 负责，识别器 endpoint 作兜底。
         // 注：v1.12.14 的 endpoint 规则已收进嵌套的 EndpointConfig，
         // 不再以 rule1MinTrailingSilence/rule2MinUtteranceLength 等独立命名参数暴露。
+        // A.1.1：transducer（bilingual）支持 modified_beam_search，缓解重复吐字/截断；
+        // CTC（俄语）只支持 greedy_search，保持默认以免初始化报错。
+        val decodingMethod = if (type == ModelType.BILINGUAL) "modified_beam_search" else "greedy_search"
         return OnlineRecognizerConfig(
             featConfig = feat,
             modelConfig = model,
+            decodingMethod = decodingMethod,
             enableEndpoint = true,
         )
     }

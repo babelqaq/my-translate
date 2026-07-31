@@ -274,16 +274,22 @@ class _LivePageState extends State<LivePage> {
                   children: [
                     const Text('输入语种', style: TextStyle(fontSize: 13)),
                     const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: const Text('自动'),
-                      selected: manualLang == 'auto',
-                      onSelected: (_) =>
-                          context.read<LiveSession>().setManualLang('auto'),
-                    ),
-                    const SizedBox(width: 8),
+                    // 模式 B（中⇄俄）无中俄双语模型，"自动"实为 sticky(zh)，属误导性文案，故隐藏该档。
+                    // 模式 A（中⇄英）保留"自动"：bilingual 模型天然支持，名副其实。
+                    if (mode != 'zhRu') ...[
+                      ChoiceChip(
+                        label: const Text('自动'),
+                        selected: manualLang == 'auto',
+                        onSelected: (_) =>
+                            context.read<LiveSession>().setManualLang('auto'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     ChoiceChip(
                       label: const Text('中文'),
-                      selected: manualLang == 'zh',
+                      // 模式 B 下 manualLang=='auto' 等价于 zh（Kotlin auto→zh），故高亮中文，避免无选中态
+                      selected: manualLang == 'zh' ||
+                          (mode == 'zhRu' && manualLang == 'auto'),
                       onSelected: (_) =>
                           context.read<LiveSession>().setManualLang('zh'),
                     ),
