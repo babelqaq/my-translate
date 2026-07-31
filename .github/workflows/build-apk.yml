@@ -49,8 +49,9 @@ jobs:
             android/settings.gradle \
             android/build.gradle \
             android/gradle.properties \
-            android/gradle/wrapper/gradle-wrapper.properties \
             android/app/proguard-rules.pro
+          # 注意：android/gradle/wrapper/gradle-wrapper.properties 故意不恢复，
+          # 由上面 `flutter create` 生成与当前 Flutter 匹配的 Gradle 版本（AGP 9 需 Gradle >= 8.11.1）。
 
       - name: Cache models
         # 模型共 ~330MB，缓存后二次构建免下载。key 绑定下载脚本内容，

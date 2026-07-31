@@ -1,25 +1,17 @@
 // android/app/build.gradle — Phase A: Sherpa-ONNX ASR 底座
+// 采用 Flutter 新 DSL（AGP 9+ 兼容）：通过 dev.flutter.flutter-gradle-plugin 应用 Flutter 插件，
+// 不再使用旧的 apply from: flutter.gradle 方式（旧方式在 AGP 9 下会因 DSL 接口变更而失败）。
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // Flutter Gradle 插件必须在 android{} 之后配置
+    // Flutter Gradle 插件必须在 Android / Kotlin 插件之后应用
     id "dev.flutter.flutter-gradle-plugin"
 }
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
-    }
-}
-
-def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: '1'
-def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.0'
-
 android {
     namespace = "com.example.my_translate"
-    compileSdk = 34
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -27,29 +19,25 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = '17'
-    }
-
-    sourceSets {
-        main.java.srcDirs += 'src/main/kotlin'
+        jvmTarget = JavaVersion.VERSION_17
     }
 
     defaultConfig {
         applicationId = "com.example.my_translate"
         minSdk = 23          // sherpa-onnx 要求 minSdk 23+
-        targetSdk = 34
-        versionCode = flutterVersionCode.toInteger()
-        versionName = flutterVersionName
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
 
         // 单架构 arm64-v8a：体积最省（目标设备均为 64 位 ARM 手机）
         ndk {
-            abiFilters 'arm64-v8a'
+            abiFilters += ["arm64-v8a"]
         }
     }
 
     // onnx 模型文件不压缩（sherpa-onnx 需 mmap 直读）
     androidResources {
-        noCompress 'onnx'
+        noCompress "onnx"
     }
 
     buildTypes {
@@ -62,10 +50,13 @@ android {
     }
 }
 
+flutter {
+    source = "../.."
+}
+
 dependencies {
     // ============================================================
     // Sherpa-ONNX 官方 AAR（GitHub Releases 直下，放入 libs/ 并入库）
-    // 下载地址见《项目总体规划.md》〇节清单 #1
     // 不配置 Maven 坐标（国内拉取必失败）
     // ============================================================
     implementation files("libs/sherpa-onnx-1.12.14.aar")
