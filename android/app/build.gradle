@@ -68,5 +68,5 @@ dependencies {
     // 下载地址见《项目总体规划.md》〇节清单 #1
     // 不配置 Maven 坐标（国内拉取必失败）
     // ============================================================
-    implementation files("libs/sherpa-onnx-1.12.25.aar")
+    implementation files("libs/sherpa-onnx-1.12.14.aar")
 }

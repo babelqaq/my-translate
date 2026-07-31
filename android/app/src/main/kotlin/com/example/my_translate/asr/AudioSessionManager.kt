@@ -68,8 +68,8 @@ class AudioSessionManager(
                 recognizerManager = RecognizerManager(context, cfg, ::handleEvent)
                 recognizerManager?.load(mode)
 
-                // VAD（Phase A：与 ASR endpoint 互补）
-                vadProcessor = VadProcessor(cfg) {
+                // VAD（Phase A：负责句子边界切分）
+                vadProcessor = VadProcessor(context.assets, cfg) {
                     // VAD 判定一句话结束 → 通知 RecognizerManager finalize
                     recognizerManager?.onVadSegmentEnd()
                 }

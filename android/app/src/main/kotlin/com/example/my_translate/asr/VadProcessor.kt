@@ -1,9 +1,10 @@
 package com.example.my_translate.asr
 
+import android.content.res.AssetManager
 import android.util.Log
 import com.k2fsa.sherpa.onnx.SileroVadModelConfig
 import com.k2fsa.sherpa.onnx.Vad
-import com.k2fsa.sherpa.onnx.VadConfig
+import com.k2fsa.sherpa.onnx.VadModelConfig
 
 /**
  * Silero VAD 包装：切句与门控。
@@ -11,13 +12,14 @@ import com.k2fsa.sherpa.onnx.VadConfig
  * sherpa-onnx 的 Vad 类以「完整语音段」为单位输出（内部已做 start/end 检测）。
  * 本类在每帧 feed 后检查是否有新段输出，有则回调 [onSegmentEnd]。
  *
- * Phase A：VAD 与 ASR endpoint 互补——两者任一触发都 finalize ASR。
- * Phase D：启用 VAD 门控（静音期不喂 ASR，省电）。
+ * 模型直接从 assets 加载（assetManager + asset 相对路径）。
  *
- * @param cfg       AsrConfig（取 vadThreshold / minSilenceMs / minSpeechMs / sampleRate）
- * @param onSegmentEnd  VAD 判定一句话结束时回调
+ * @param assetManager 用于从 assets 读取模型（由 Context.assets 传入）
+ * @param cfg          AsrConfig（取 vadThreshold / minSilenceMs / minSpeechMs / sampleRate / numThreads）
+ * @param onSegmentEnd VAD 判定一句话结束时回调
  */
 class VadProcessor(
+    private val assetManager: AssetManager,
     cfg: AsrConfig,
     private val onSegmentEnd: () -> Unit,
 ) {
@@ -26,16 +28,17 @@ class VadProcessor(
 
     init {
         val sileroConfig = SileroVadModelConfig(
-            model = "models/vad/silero_vad.onnx",  // asset 相对路径（由 AssetManager 解析）
+            model = "models/vad/silero_vad.onnx",
             threshold = cfg.vadThreshold,
             minSilenceDuration = cfg.minSilenceMs.toFloat() / 1000f,
             minSpeechDuration = cfg.minSpeechMs.toFloat() / 1000f,
         )
-        val config = VadConfig(
+        val config = VadModelConfig(
             sampleRate = cfg.sampleRate,
             sileroVadModelConfig = sileroConfig,
+            numThreads = cfg.numThreads,
         )
-        vad = Vad(config = config)
+        vad = Vad(assetManager = assetManager, config = config)
     }
 
     /**
@@ -44,9 +47,8 @@ class VadProcessor(
      */
     fun process(samples: FloatArray) {
         try {
-            vad.accept(samples)
-            while (!vad.isEmpty()) {
-                val segment = vad.front()
+            vad.acceptWaveform(samples)
+            while (!vad.empty()) {
                 vad.pop()
                 // 完整语音段就绪 = 一句话结束
                 onSegmentEnd()
@@ -59,8 +61,7 @@ class VadProcessor(
     /** 强制冲刷当前语音段（stop 时调用） */
     fun flush() {
         try {
-            vad.flush()
-            while (!vad.isEmpty()) {
+            while (!vad.empty()) {
                 vad.pop()
                 onSegmentEnd()
             }

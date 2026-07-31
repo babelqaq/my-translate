@@ -2,8 +2,6 @@ package com.example.my_translate.asr
 
 import android.content.Context
 import android.util.Log
-import java.io.File
-import java.io.FileOutputStream
 
 /**
  * 识别器持有与 sticky 调度。
@@ -46,32 +44,13 @@ class RecognizerManager(
         this.mode = mode
         this.activeLang = if (mode == "zhRu") "zh" else "auto"
 
-        val zhEnDir = copyAssetDir("models/zh_en", "zh_en")
-        bilingual = SherpaRecognizer(zhEnDir, SherpaRecognizer.ModelType.BILINGUAL, cfg)
+        bilingual = SherpaRecognizer(context.assets, SherpaRecognizer.ModelType.BILINGUAL, cfg)
 
         if (mode == "zhRu") {
-            val ruDir = copyAssetDir("models/ru", "ru")
-            russian = SherpaRecognizer(ruDir, SherpaRecognizer.ModelType.RUSSIAN, cfg)
+            russian = SherpaRecognizer(context.assets, SherpaRecognizer.ModelType.RUSSIAN, cfg)
         }
 
         loaded = true
-    }
-
-    /** 从 assets 拷贝模型目录到内部存储，返回目标绝对路径 */
-    private fun copyAssetDir(assetPath: String, dirName: String): String {
-        val destDir = File(context.filesDir, "models/$dirName")
-        if (!destDir.exists()) destDir.mkdirs()
-
-        val files = context.assets.list(assetPath) ?: emptyArray()
-        for (f in files) {
-            val destFile = File(destDir, f)
-            if (destFile.exists() && destFile.length() > 0) continue
-            context.assets.open("$assetPath/$f").use { input ->
-                FileOutputStream(destFile).use { output -> input.copyTo(output) }
-            }
-            Log.d(tag, "Copied $f → ${destFile.absolutePath} (${destFile.length()} bytes)")
-        }
-        return destDir.absolutePath
     }
 
     // ---------- 帧处理 ----------
@@ -82,18 +61,10 @@ class RecognizerManager(
         rec.feed(samples)
         rec.decode()
 
-        // 检查 endpoint（ASR 自带的句末静音检测）
-        if (rec.isEndpoint()) {
-            val result = rec.finalizeSegment()
-            if (result.text.isNotEmpty()) {
-                onSegmentEnd(result.text)
-            }
-        } else {
-            // partial 更新
-            val partial = rec.partialText
-            if (partial.isNotEmpty()) {
-                emit(mapOf("type" to "partial", "text" to partial))
-            }
+        // partial 实时更新（句子边界由 VAD 负责 finalize，避免与 endpoint 重复提交）
+        val partial = rec.partialText
+        if (partial.isNotEmpty()) {
+            emit(mapOf("type" to "partial", "text" to partial))
         }
     }
 

@@ -69,7 +69,7 @@
 - `compileSdk = 34`, `minSdk = 23`（sherpa-onnx 要求 23+）
 - `ndk { abiFilters 'arm64-v8a' }` 单架构
 - `androidResources { noCompress 'onnx' }` 模型不压缩
-- `implementation files("libs/sherpa-onnx-1.12.25.aar")` **不走 Maven**（INV-MIRROR）
+- `implementation files("libs/sherpa-onnx-1.12.14.aar")` **不走 Maven**（INV-MIRROR）
 
 ### `android/app/src/main/AndroidManifest.xml`
 - 权限：RECORD_AUDIO + INTERNET + ACCESS_NETWORK_STATE
