@@ -23,6 +23,11 @@ pluginManagement {
 
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+    // AGP / Kotlin 版本必须与当前 Flutter stable 自带版本一致（gradle_utils: 9.0.1 / 2.3.20），
+    // 否则 app/build.gradle 的 plugins { id "com.android.application" } 因缺版本号而无法解析。
+    // 这两个 apply false 声明也正好对齐 dev.flutter.flutter-gradle-plugin 内部使用的 AGP 9，不会触发 AGP 9 DSL 报错。
+    id "com.android.application" version "9.0.1" apply false
+    id "org.jetbrains.kotlin.android" version "2.3.20" apply false
 }
 
 dependencyResolutionManagement {
