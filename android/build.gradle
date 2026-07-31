@@ -1,4 +1,4 @@
-// android/build.gradle — 根项目构建文件
+// android/build.gradle — 根项目构建文件（Groovy DSL）
 // Phase A: Sherpa-ONNX 重构（Dart 3 / Flutter 3.22+）
 
 allprojects {
@@ -8,11 +8,11 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
+def newBuildDir = rootProject.layout.buildDirectory.dir("../../build").get()
 rootProject.layout.buildDirectory.value(newBuildDir)
 
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
+    def newSubprojectBuildDir = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 
@@ -20,6 +20,6 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-tasks.register<Delete>("clean") {
-    delete(rootProject.layout.buildDirectory)
+tasks.register("clean") {
+    delete rootProject.layout.buildDirectory
 }
