@@ -73,6 +73,16 @@ jobs:
       - name: Build APK
         run: flutter build apk --debug --verbose
 
+      - name: Surface build failure detail
+        if: failure()
+        run: |
+          echo "===== grep FAILURE / What went wrong / Caused by (project root flutter_build.log) ====="
+          grep -n -A 50 -E "FAILURE: Build failed|What went wrong|Caused by|e: file://" flutter_build.log 2>/dev/null || true
+          echo "===== grep (android/flutter_build.log) ====="
+          grep -n -A 50 -E "FAILURE: Build failed|What went wrong|Caused by|e: file://" android/flutter_build.log 2>/dev/null || true
+          echo "===== gradle daemon logs ====="
+          find android/build/outputs/logs -type f 2>/dev/null -exec echo "--- {} ---" \; -exec cat {} \; || true
+
       - name: Upload Gradle log on failure
         if: failure()
         uses: actions/upload-artifact@v4
