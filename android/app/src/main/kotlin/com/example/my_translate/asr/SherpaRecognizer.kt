@@ -71,11 +71,17 @@ class SherpaRecognizer(
         // 不再以 rule1MinTrailingSilence/rule2MinUtteranceLength 等独立命名参数暴露。
         // A.1.1：transducer（bilingual）支持 modified_beam_search，缓解重复吐字/截断；
         // CTC（俄语）只支持 greedy_search，保持默认以免初始化报错。
-        val decodingMethod = if (type == ModelType.BILINGUAL) "modified_beam_search" else "greedy_search"
+        val isTransducer = type == ModelType.BILINGUAL
+        val decodingMethod = if (isTransducer) "modified_beam_search" else "greedy_search"
         return OnlineRecognizerConfig(
             featConfig = feat,
             modelConfig = model,
             decodingMethod = decodingMethod,
+            // A.1.2：慢语速下 transducer 在长持续音上反复发射同一非 blank token（"三三三"），
+            // beam width=4 抑制不足。加大到 8 让搜索更充分，更易收敛到"发一次+持续 blank"路径。
+            // 仅影响 modified_beam_search；CTC(俄语) 走 greedy 忽略此字段，无副作用。
+            // 注意：blank_penalty 方向恰相反（提高会加重 insertion/重复，仅对漏字 deletion 有效），故不用于本场景。
+            numActivePaths = if (isTransducer) 8 else 4,
             enableEndpoint = true,
         )
     }

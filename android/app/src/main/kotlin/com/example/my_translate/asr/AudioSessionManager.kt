@@ -143,16 +143,6 @@ class AudioSessionManager(
         }
     }
 
-    /** 暂停麦克风采集投喂（TTS 播放期间，防回声自触发） */
-    fun pauseCapture() {
-        audioCapture?.pause()
-    }
-
-    /** 恢复麦克风采集投喂（TTS 结束 + 冷却期后） */
-    fun resumeCapture() {
-        audioCapture?.resume()
-    }
-
     /** 热更新配置 */
     fun setConfig(newCfg: AsrConfig) {
         cfg = newCfg

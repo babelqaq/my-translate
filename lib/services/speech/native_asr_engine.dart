@@ -53,16 +53,6 @@ class NativeAsrEngine {
     await _control.invokeMethod('setConfig', {'config': jsonEncode(cfg)});
   }
 
-  /// TTS 播放前暂停麦克风采集（防回声自触发）。
-  Future<void> pauseCapture() async {
-    await _control.invokeMethod('pauseCapture');
-  }
-
-  /// TTS 结束 + 冷却期后恢复采集。
-  Future<void> resumeCapture() async {
-    await _control.invokeMethod('resumeCapture');
-  }
-
   /// 订阅 EventChannel。在 LiveSession.start() 之前调用。
   void subscribe(void Function(AsrEvent) onEvent) {
     _sub?.cancel();

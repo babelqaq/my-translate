@@ -24,7 +24,6 @@ class AudioCapture(
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     @Volatile private var capturing = false
-    @Volatile private var paused = false
 
     fun start() {
         if (capturing) return
@@ -58,12 +57,6 @@ class AudioCapture(
         }
     }
 
-    /** TTS 播放期间暂停投喂：继续读取以排空缓冲区，但丢弃帧（防回声自触发） */
-    fun pause() { paused = true }
-
-    /** 恢复投喂（TTS 结束后 + 冷却期） */
-    fun resume() { paused = false }
-
     private fun captureLoop() {
         val frameSamples = cfg.frameSamples
         val shortBuffer = ShortArray(frameSamples)
@@ -87,7 +80,6 @@ class AudioCapture(
 
             // 只投递有效部分
             val frame = if (read == frameSamples) floatBuffer else floatBuffer.copyOf(read)
-            if (paused) continue   // TTS 播放中：丢弃该帧，不送识别流程（防回声自触发）
             onFrame(frame)
         }
     }

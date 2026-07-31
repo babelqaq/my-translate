@@ -6,7 +6,7 @@ import 'app_settings.dart';
 
 /// 翻译后端：国内大模型（OpenAI 兼容 Chat Completions 接口）。
 ///
-/// Phase A：非流式翻译（Phase B 将新增 translateStream SSE）。
+/// Phase A/B：非流式翻译（Phase C 将新增 translateStream SSE）。
 /// Phase A 已删除 punctuate()——标点由翻译 Prompt 一并处理（S2/S6 消亡）。
 class TranslationService {
   final AppSettings settings;
@@ -101,12 +101,16 @@ class TranslationService {
     final system = 'You are a professional speech interpreter. Translate the '
         "user's text from $srcName to $tgtName. "
         'The input is transcribed SPEECH and may include filler words '
-        '(e.g. "um", "ah", "那个"), disfluencies, or ASR errors. '
+        '(e.g. "um", "ah", "那个"), disfluencies, or ASR recognition errors '
+        'such as homophone confusion (e.g. "sun" vs "sound") and unintended '
+        'repetition from slips of the tongue. '
         'If the source has no real semantic content — pure filler, a single '
         'pause sound, gibberish, or empty after trimming — respond with an '
         'EMPTY string. Do NOT invent, expand, explain, or add anything '
-        'beyond the source. Otherwise correct obvious ASR mistakes and '
-        'produce NATURAL, fluent $tgtName with natural punctuation. '
+        'beyond the source. Otherwise correct obvious ASR mistakes: using the '
+        'surrounding context, infer the speaker\u2019s true intent and do NOT '
+        'translate a clear recognition error literally word-for-word. Produce '
+        'NATURAL, fluent $tgtName with natural punctuation. '
         'Output ONLY the translated text, with no quotes, no explanations, and '
         'no extra commentary.';
 

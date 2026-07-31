@@ -33,7 +33,7 @@ const Map<String, LlmPreset> llmPresets = {
 /// Phase A 字段迁移：
 /// - 删除：engine（vosk/google）、modelBaseUrl（不再运行期下载）
 /// - 升级：foreignLang('en'/'ru') → mode('zhEn'/'zhRu')，沿用旧 key 做迁移
-/// - 新增：streamEnabled（Phase B 用，Phase A 先存）
+/// - 新增：streamEnabled（Phase C 用，Phase A/B 先存且不消费）
 class AppSettings extends ChangeNotifier {
   static const String _kMode = 'mode';
   static const String _kForeignLangLegacy = 'foreign_lang'; // 旧 key，迁移用
@@ -50,7 +50,7 @@ class AppSettings extends ChangeNotifier {
   String _llmModel = ''; // 留空则用供应商默认模型
   double _ttsRate = 0.95;
   double _fontSize = 30;
-  bool _streamEnabled = true; // Phase B 用
+  bool _streamEnabled = false; // Phase C 用（Phase A/B 翻译恒非流式，此开关暂不消费）
 
   String get mode => _mode;
   String get llmProvider => _llmProvider;
@@ -77,7 +77,7 @@ class AppSettings extends ChangeNotifier {
     _llmModel = prefs.getString(_kLlmModel) ?? '';
     _ttsRate = prefs.getDouble(_kTtsRate) ?? 0.95;
     _fontSize = prefs.getDouble(_kFontSize) ?? 30;
-    _streamEnabled = prefs.getBool(_kStreamEnabled) ?? true;
+    _streamEnabled = prefs.getBool(_kStreamEnabled) ?? false;
     notifyListeners();
   }
 

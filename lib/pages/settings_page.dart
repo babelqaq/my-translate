@@ -89,10 +89,10 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(),
 
-          // Phase B 预留：流式翻译开关（Phase A 先显示，功能在 Phase B 实现）
+          // Phase C 预留：流式翻译开关（Phase A/B 先显示，功能在 Phase C 实现）
           SwitchListTile(
             title: const Text('流式翻译'),
-            subtitle: const Text('译文逐字浮现（Phase B 启用，当前为非流式）'),
+            subtitle: const Text('译文逐字浮现（Phase C 启用，当前为非流式）'),
             value: s.streamEnabled,
             onChanged: (v) => s.setStreamEnabled(v),
           ),
