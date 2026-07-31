@@ -39,6 +39,15 @@ jobs:
         # flutter create 不会覆盖已存在的自定义文件（asr/*.kt 等）。
         run: flutter create --platforms=android --project-name my_translate .
 
+      - name: Pin Gradle to 9.1.0 (AGP minimum)
+        # 当前 Flutter stable 实际应用的 AGP 要求 Gradle >= 9.1.0；
+        # flutter create 可能生成较低版本（如 8.12），这里强制对齐，
+        # 否则会在插件解析阶段报 "Minimum supported Gradle version is 9.1.0"。
+        # gradle-wrapper.jar 与 Gradle 9.1.0 兼容，可正常引导下载。
+        run: |
+          sed -i 's#gradle-[0-9][0-9.]*-bin\.zip#gradle-9.1.0-bin.zip#' android/gradle/wrapper/gradle-wrapper.properties
+          grep distributionUrl android/gradle/wrapper/gradle-wrapper.properties
+
       - name: Restore committed custom files
         # flutter create 可能覆盖我们的 build.gradle / Manifest / Kotlin，
         # 从 git 恢复我们的版本（不影响 flutter create 生成的 res/ 和 gradle-wrapper.jar）。
